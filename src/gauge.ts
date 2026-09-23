@@ -53,8 +53,8 @@ function point(fraction: number, radius: number, cx: number, cy: number): string
   const angle = (135 + fraction * 270) * Math.PI / 180;
   return `${(cx + Math.cos(angle) * radius).toFixed(2)} ${(cy + Math.sin(angle) * radius).toFixed(2)}`;
 }
-function arc(fraction: number, cx: number, cy: number): string {
-  return `M ${point(0, 72, cx, cy)} A 72 72 0 ${fraction > 2 / 3 ? 1 : 0} 1 ${point(fraction, 72, cx, cy)}`;
+function arc(fraction: number, cx: number, cy: number, radius = 72): string {
+  return `M ${point(0, radius, cx, cy)} A ${radius} ${radius} 0 ${fraction > 2 / 3 ? 1 : 0} 1 ${point(fraction, radius, cx, cy)}`;
 }
 function encodeSvg(svg: string): string { return `data:image/svg+xml,${encodeURIComponent(svg)}`; }
 function safe(value: string): string { return value.replace(/[<&>]/g, ""); }
@@ -63,6 +63,10 @@ function gauge(kind: "download" | "upload", state: LiveState, theme: ReturnType<
   const value = megabitsPerSecond(state.result[kind]);
   const fraction = speedFraction(value);
   const color = colors[kind];
+  const active = state.phase === kind;
+  const rawProgress = state.result[kind]?.progress;
+  const progress = typeof rawProgress === "number" && Number.isFinite(rawProgress)
+    ? Math.max(0, Math.min(1, rawProgress)) : 0;
   const ticks = speedTicks.map((tick, index) => {
     const tickFraction = index / (speedTicks.length - 1);
     const [x1, y1] = point(tickFraction, 82, cx, 112).split(" ");
@@ -74,10 +78,11 @@ function gauge(kind: "download" | "upload", state: LiveState, theme: ReturnType<
   const label = kind[0].toUpperCase() + kind.slice(1);
   return `${ticks}<path d="${arc(1, cx, 112)}" fill="none" stroke="${theme.track}" stroke-width="10" stroke-linecap="round"/>
     ${value !== undefined ? `<path d="${arc(fraction, cx, 112)}" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"/>` : ""}
+    ${active && progress > 0 ? `<path data-progress="${kind}" d="${arc(progress, cx, 112, 61)}" fill="none" stroke="${color}" stroke-opacity=".55" stroke-width="1.8" stroke-linecap="round"/>` : ""}
     <circle cx="${markerX}" cy="${markerY}" r="5" fill="#fff" stroke="${color}" stroke-width="2"/>
     <text x="${cx}" y="117" text-anchor="middle" fill="${theme.text}" font-size="28" font-weight="700">${formatMbps(state.result[kind])}</text>
     <text x="${cx}" y="136" text-anchor="middle" fill="${theme.muted}" font-size="10">Mbps</text>
-    <text x="${cx}" y="177" text-anchor="middle" fill="${color}" font-size="11" font-weight="600">${label}</text>`;
+    <text x="${cx}" y="177" text-anchor="middle" fill="${color}" font-size="11" font-weight="600">${active ? `${Math.round(progress * 100)}% · ${label}` : label}</text>`;
 }
 
 function chart(kind: "download" | "upload", state: LiveState, theme: ReturnType<typeof palette>, x: number): string {

@@ -4,6 +4,8 @@ A standalone, local Raycast-format extension for unmodified Tinycast 0.11.3. A p
 
 History includes every valid progress measurement, even when several arrive between UI updates. Charts show the latest sample, all-run peak, and total sample count. The most recent 600 samples per direction are retained for drawing; counts and peaks cover the entire run. Final summary values come from the CLI result and may differ from the last progress sample. Restarting clears the histories.
 
+During download or upload, a thin inner arc shows that stage's completion fraction, with a percentage beside the gauge label. The outer arc continues to show Mbps independently. The inner arc disappears when the stage ends, keeping the existing dashboard layout unchanged.
+
 ## Build and install
 
 ```sh

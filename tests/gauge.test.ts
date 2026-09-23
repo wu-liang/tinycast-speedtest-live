@@ -13,7 +13,13 @@ test("speed scale follows Mbps independently of test completion", () => {
   const state: LiveState = { phase: "download", result: { download: { bandwidth: 12_500_000, progress: 0.1 } }, history: emptyHistory };
   const first = decodeURIComponent(dashboardDataUri(state, "dark"));
   const later = decodeURIComponent(dashboardDataUri({ ...state, result: { download: { ...state.result.download, progress: 0.9 } } }, "dark"));
-  assert.deepEqual(first.match(/<path[^>]+/g), later.match(/<path[^>]+/g));
+  const speedPaths = (svg: string) => svg.match(/<path[^>]+/g)?.filter((path) => !path.includes("data-progress"));
+  assert.deepEqual(speedPaths(first), speedPaths(later));
+  assert.notEqual(first.match(/<path data-progress[^>]+/)?.[0], later.match(/<path data-progress[^>]+/)?.[0]);
+  assert.match(later, /90% · Download/);
+  assert.doesNotMatch(later, /data-progress="upload"/);
+  const done = decodeURIComponent(dashboardDataUri({ ...state, phase: "done" }, "dark"));
+  assert.doesNotMatch(done, /data-progress=/);
   assert.match(first, />100<\/text>/);
   assert.match(later, /90%/);
 });
