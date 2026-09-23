@@ -6,6 +6,8 @@ History includes every valid progress measurement, even when several arrive betw
 
 During download or upload, a thin inner arc shows that stage's completion fraction, with a percentage beside the gauge label. The outer arc continues to show Mbps independently. The inner arc disappears when the stage ends, keeping the existing dashboard layout unchanged.
 
+The current stage is displayed between the gauges as a large percentage and a smaller label: blue for Downloading and purple for Uploading. It uses the same completion fraction as the inner arc. Completion is shown as a compact green check and Complete label in the same position.
+
 ## Build and install
 
 ```sh

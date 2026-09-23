@@ -57,16 +57,18 @@ function arc(fraction: number, cx: number, cy: number, radius = 72): string {
   return `M ${point(0, radius, cx, cy)} A ${radius} ${radius} 0 ${fraction > 2 / 3 ? 1 : 0} 1 ${point(fraction, radius, cx, cy)}`;
 }
 function encodeSvg(svg: string): string { return `data:image/svg+xml,${encodeURIComponent(svg)}`; }
-function safe(value: string): string { return value.replace(/[<&>]/g, ""); }
+function progressFraction(measurement?: SpeedMeasurement): number {
+  const progress = measurement?.progress;
+  return typeof progress === "number" && Number.isFinite(progress)
+    ? Math.max(0, Math.min(1, progress)) : 0;
+}
 
 function gauge(kind: "download" | "upload", state: LiveState, theme: ReturnType<typeof palette>, cx: number): string {
   const value = megabitsPerSecond(state.result[kind]);
   const fraction = speedFraction(value);
   const color = colors[kind];
   const active = state.phase === kind;
-  const rawProgress = state.result[kind]?.progress;
-  const progress = typeof rawProgress === "number" && Number.isFinite(rawProgress)
-    ? Math.max(0, Math.min(1, rawProgress)) : 0;
+  const progress = progressFraction(state.result[kind]);
   const ticks = speedTicks.map((tick, index) => {
     const tickFraction = index / (speedTicks.length - 1);
     const [x1, y1] = point(tickFraction, 82, cx, 112).split(" ");
@@ -121,13 +123,18 @@ function summaryCard(x: number, color: string, title: string, value: string, the
 /** One composite image keeps Tinycast's Grid identity stable throughout a live run. */
 export function dashboardDataUri(state: LiveState, appearance: "light" | "dark"): string {
   const theme = palette(appearance), ping = latency(state);
-  const phaseStatus = state.phase === "upload"
-    ? `Uploading live · ${Math.round((state.result.upload?.progress ?? 0) * 100)}%`
-    : state.phase === "download"
-      ? `Downloading live · ${Math.round((state.result.download?.progress ?? 0) * 100)}%`
-      : state.phase === "ping" ? "Measuring latency…" : state.phase === "done" ? "Complete" : state.phase === "error" ? "Failed" : state.phase === "cancelled" ? "Cancelled" : "Connecting…";
+  const activeKind = state.phase === "download" || state.phase === "upload" ? state.phase : undefined;
+  const statusValue = activeKind ? `${Math.round(progressFraction(state.result[activeKind]) * 100)}%`
+    : state.phase === "done" ? "✓" : state.phase === "error" ? "!" : state.phase === "cancelled" ? "—" : "…";
+  const statusLabel = state.phase === "download" ? "Downloading" : state.phase === "upload" ? "Uploading"
+    : state.phase === "ping" ? "Measuring ping" : state.phase === "done" ? "Complete"
+      : state.phase === "error" ? "Failed" : state.phase === "cancelled" ? "Cancelled" : "Connecting";
+  const statusColor = activeKind ? colors[activeKind] : state.phase === "done" ? "#32c878"
+    : state.phase === "error" ? "#ef6464" : theme.muted;
   return encodeSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="720" height="360" viewBox="0 0 720 360" font-family="-apple-system,BlinkMacSystemFont,sans-serif">
-    <rect width="720" height="360" fill="${theme.background}"/><text x="24" y="24" fill="${theme.muted}" font-size="10">${safe(phaseStatus)}</text>
+    <rect width="720" height="360" fill="${theme.background}"/>
+    <text x="360" y="117" text-anchor="middle" fill="${statusColor}" font-size="30" font-weight="600">${statusValue}</text>
+    <text x="360" y="141" text-anchor="middle" fill="${statusColor}" font-size="12">${statusLabel}</text>
     ${gauge("download", state, theme, 180)}${gauge("upload", state, theme, 540)}
     ${chart("download", state, theme, 40)}${chart("upload", state, theme, 400)}
     ${summaryCard(24, colors.ping, "Ping", ping === undefined ? "— ms" : `${ping.toFixed(1)} ms`, theme)}
