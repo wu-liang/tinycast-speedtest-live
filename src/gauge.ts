@@ -90,7 +90,7 @@ function gauge(kind: "download" | "upload", state: LiveState, theme: ReturnType<
 function chart(kind: "download" | "upload", state: LiveState, theme: ReturnType<typeof palette>, x: number): string {
   const history = state.history[kind];
   const samples = history.samples.filter((value) => Number.isFinite(value) && value >= 0);
-  const width = 166, baseline = 276, top = 241;
+  const width = 204, baseline = 276, top = 241;
   const retainedPeak = Number.isFinite(history.peak) && history.peak >= 0 ? history.peak : 0;
   const max = Math.max(1, retainedPeak, ...samples);
   const points = samples.map((value, index) => {
@@ -104,12 +104,12 @@ function chart(kind: "download" | "upload", state: LiveState, theme: ReturnType<
   const endX = samples.length ? x + (samples.length === 1 ? 0 : width) : x;
   const endY = latest === undefined ? baseline : baseline - latest / max * (baseline - top);
   const label = kind[0].toUpperCase() + kind.slice(1), color = colors[kind];
-  return `<g><rect x="${x - 15}" y="194" width="286" height="96" rx="12" fill="${theme.panel}"/>
+  return `<g><rect x="${x - 15}" y="194" width="328" height="96" rx="12" fill="${theme.panel}"/>
     <text x="${x}" y="212" fill="${theme.muted}" font-size="10">${label} over time</text>
     <text x="${x}" y="226" fill="${theme.muted}" font-size="9">peak ${formatValue(history.count ? history.peak : undefined)}</text>
     ${fill ? `<path d="${fill}" fill="${color}" fill-opacity=".20"/>` : ""}${line ? `<path d="${line}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>` : ""}${samples.length ? `<circle cx="${endX.toFixed(2)}" cy="${endY.toFixed(2)}" r="3.5" fill="${color}"/>` : ""}
-    <text x="${x + 178}" y="251" fill="${theme.text}" font-size="11" font-weight="700">${formatValue(latest)}</text>
-    <text x="${x + 178}" y="279" fill="${theme.muted}" font-size="9">${history.count} samples</text></g>`;
+    <text x="${x + 216}" y="251" fill="${theme.text}" font-size="11" font-weight="700">${formatValue(latest)}</text>
+    <text x="${x + 216}" y="279" fill="${theme.muted}" font-size="9">${history.count} samples</text></g>`;
 }
 
 function latency(state: LiveState): number | undefined {
@@ -136,7 +136,7 @@ export function dashboardDataUri(state: LiveState, appearance: "light" | "dark")
     <text x="360" y="117" text-anchor="middle" fill="${statusColor}" font-size="30" font-weight="600">${statusValue}</text>
     <text x="360" y="141" text-anchor="middle" fill="${statusColor}" font-size="12">${statusLabel}</text>
     ${gauge("download", state, theme, 180)}${gauge("upload", state, theme, 540)}
-    ${chart("download", state, theme, 40)}${chart("upload", state, theme, 400)}
+    ${chart("download", state, theme, 39)}${chart("upload", state, theme, 383)}
     ${summaryCard(24, colors.ping, "Ping", ping === undefined ? "— ms" : `${ping.toFixed(1)} ms`, theme)}
     ${summaryCard(259, colors.download, "Download", formatValue(megabitsPerSecond(state.result.download)), theme)}
     ${summaryCard(494, colors.upload, "Upload", formatValue(megabitsPerSecond(state.result.upload)), theme)}
