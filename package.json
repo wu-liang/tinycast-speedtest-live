@@ -1,0 +1,47 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "tinycast-speedtest-live",
+  "title": "Speedtest Live",
+  "description": "Live Ookla speed gauges for Tinycast",
+  "icon": "assets/speedometer.svg",
+  "author": "wu-liang",
+  "license": "MIT",
+  "categories": ["Developer Tools"],
+  "platforms": ["macOS"],
+  "commands": [
+    {
+      "name": "index",
+      "title": "Speedtest Live",
+      "description": "Run Ookla Speedtest with live download and upload gauges",
+      "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "cliPath",
+      "type": "textfield",
+      "title": "Ookla CLI Path",
+      "description": "Optional path to an already-installed Ookla Speedtest CLI binary.",
+      "required": false
+    }
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/**/*.test.ts",
+    "install-local": "node scripts/install-local.mjs",
+    "install-speedtest-cli": "node scripts/install-speedtest-cli.mjs",
+    "fixture-build": "node scripts/build-fixture.mjs"
+  },
+  "dependencies": {
+    "@raycast/api": "^1.104.0",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0"
+  }
+}
