@@ -116,8 +116,10 @@ function latency(state: LiveState): number | undefined {
   const value = state.result.ping?.latency;
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
 }
-function summaryCard(x: number, color: string, title: string, value: string, theme: ReturnType<typeof palette>): string {
-  return `<rect x="${x}" y="303" width="202" height="39" rx="11" fill="${color}" fill-opacity=".19"/><circle cx="${x + 17}" cy="323" r="4.5" fill="${color}"/><text x="${x + 31}" y="321" fill="${theme.text}" font-size="10" font-weight="600">${title}</text><text x="${x + 31}" y="334" fill="${theme.text}" font-size="10" font-weight="700">${value}</text>`;
+function summaryCard(index: number, color: string, title: string, value: string, theme: ReturnType<typeof palette>): string {
+  const gap = 16, width = (720 - 24 * 2 - gap * 2) / 3;
+  const x = 24 + index * (width + gap);
+  return `<rect x="${x}" y="303" width="${width}" height="39" rx="11" fill="${color}" fill-opacity=".19"/><circle cx="${x + 17}" cy="323" r="4.5" fill="${color}"/><text x="${x + 31}" y="321" fill="${theme.text}" font-size="10" font-weight="600">${title}</text><text x="${x + 31}" y="334" fill="${theme.text}" font-size="10" font-weight="700">${value}</text>`;
 }
 
 /** One composite image keeps Tinycast's Grid identity stable throughout a live run. */
@@ -137,8 +139,8 @@ export function dashboardDataUri(state: LiveState, appearance: "light" | "dark")
     <text x="360" y="141" text-anchor="middle" fill="${statusColor}" font-size="12">${statusLabel}</text>
     ${gauge("download", state, theme, 180)}${gauge("upload", state, theme, 540)}
     ${chart("download", state, theme, 39)}${chart("upload", state, theme, 383)}
-    ${summaryCard(24, colors.ping, "Ping", ping === undefined ? "— ms" : `${ping.toFixed(1)} ms`, theme)}
-    ${summaryCard(259, colors.download, "Download", formatValue(megabitsPerSecond(state.result.download)), theme)}
-    ${summaryCard(494, colors.upload, "Upload", formatValue(megabitsPerSecond(state.result.upload)), theme)}
+    ${summaryCard(0, colors.ping, "Ping", ping === undefined ? "— ms" : `${ping.toFixed(1)} ms`, theme)}
+    ${summaryCard(1, colors.download, "Download", formatValue(megabitsPerSecond(state.result.download)), theme)}
+    ${summaryCard(2, colors.upload, "Upload", formatValue(megabitsPerSecond(state.result.upload)), theme)}
   </svg>`);
 }
