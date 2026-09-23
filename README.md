@@ -2,6 +2,10 @@
 
 A standalone, local Raycast-format extension for unmodified Tinycast 0.11.3. A persistent Grid item displays a composite dashboard: two circular speed gauges, download/upload history charts, Ping/Download/Upload summary cards, and a bottom row for ISP, internal IP, and external IP. Tinycast retains the image while its SVG data URI updates. It polls CLI progress every 200 ms and coalesces each batch into one UI update. The 270-degree arcs follow Mbps on a graduated scale; test completion percentage is displayed separately.
 
+![Speedtest Live in Tinycast during an upload test, showing live gauges, speed history, and the complete application window](https://raw.githubusercontent.com/wu-liang/tinycast-speedtest-live/main/docs/images/speedtest-live.png)
+
+*Screenshot edited for privacy: ISP and IP addresses have been replaced with example values.*
+
 History includes every valid progress measurement, even when several arrive between UI updates. Charts show the latest sample, all-run peak, and total sample count. The most recent 600 samples per direction are retained for drawing; counts and peaks cover the entire run. Final summary values come from the CLI result and may differ from the last progress sample. Restarting clears the histories.
 
 During download or upload, a thin inner arc shows that stage's completion fraction, with a percentage beside the gauge label. The outer arc continues to show Mbps independently. The inner arc disappears when the stage ends, keeping the existing dashboard layout unchanged.
