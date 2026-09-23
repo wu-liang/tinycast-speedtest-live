@@ -20,4 +20,5 @@ await build({
 cpSync(resolve(root, "package.json"), resolve(dist, "package.json"));
 cpSync(resolve(root, "package.json"), resolve(dist, "manifest.json"));
 cpSync(resolve(root, "assets"), resolve(dist, "assets"), { recursive: true });
+for (const name of ["README.md", "LICENSE"]) cpSync(resolve(root, name), resolve(dist, name));
 console.log("Built Tinycast extension in dist/");

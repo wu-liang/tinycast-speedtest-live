@@ -10,10 +10,29 @@ The current stage is displayed between the gauges as a large percentage and a sm
 
 The footer shows ISP, Internal IP, and External IP from the CLI on one line. Missing values display a dash; long values are shortened to fit their column. Chart gaps, summary card gaps, and the gap between these rows share a 16-unit spacing. Existing installations load a rebuilt plugin when the command is closed and reopened; an application restart is unnecessary for these updates.
 
-## Build and install
+## Install the download
+
+Requires macOS and Tinycast. Compatibility has been checked with Tinycast 0.11.3; other versions have not been verified.
+
+1. Download `tinycast-speedtest-live.zip` from [Releases](https://github.com/wu-liang/tinycast-speedtest-live/releases).
+2. Extract the `tinycast-speedtest-live` folder into `~/Library/Application Support/com.tinycast.app/extensions/`. In Finder, use **Go > Go to Folder** to open that location.
+3. Supply the Ookla Speedtest CLI. If the original Speedtest extension is installed, run it once to obtain its CLI, then run:
+
+   ```sh
+   mkdir -p "$HOME/Library/Application Support/com.tinycast.app/extension-support/tinycast-speedtest-live/cli"
+   cp "$HOME/Library/Application Support/com.tinycast.app/extension-support/speedtest/cli/speedtest" "$HOME/Library/Application Support/com.tinycast.app/extension-support/tinycast-speedtest-live/cli/speedtest"
+   chmod +x "$HOME/Library/Application Support/com.tinycast.app/extension-support/tinycast-speedtest-live/cli/speedtest"
+   ```
+
+   Alternatively, set **Ookla CLI Path** in the extension preferences to the absolute path of your existing Ookla Speedtest CLI executable.
+4. Restart Tinycast after the first installation and search for **Speedtest Live**. Opening the command starts a test immediately.
+
+The download is prebuilt and needs no Node.js installation. It does not include the Ookla CLI. To update an existing installation, replace this extension folder, then exit and reopen the command.
+
+## Build from source
 
 ```sh
-npm install
+npm ci
 npm run typecheck
 npm test
 npm run build
@@ -29,6 +48,12 @@ npm run install-speedtest-cli
 ```
 
 That command copies the local existing binary into Tinycast support data, outside `dist/`.
+
+## Network data
+
+ISP and IP addresses are obtained from the running Ookla CLI, not embedded in the plugin. The extension adds no analytics or separate IP lookup service. The CLI connects to external services to perform the speed test. Progress files are kept in local Tinycast support data during a run and removed on completion, cancellation, or a handled error; an abrupt application termination may leave a temporary file behind.
+
+Test fixtures use synthetic network data. The distributable excludes local test recordings, temporary progress files, and development fixture builds.
 
 ## Fixture visual check
 
