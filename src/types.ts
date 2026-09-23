@@ -7,6 +7,11 @@ export interface SpeedMeasurement {
   bytes?: number;
 }
 
+export interface NetworkInterface {
+  internalIp?: string;
+  externalIp?: string;
+}
+
 export interface SpeedtestResult {
   ping?: { latency?: number; jitter?: number; progress?: number };
   download?: SpeedMeasurement;
@@ -14,6 +19,7 @@ export interface SpeedtestResult {
   result?: { url?: string; id?: string };
   server?: { name?: string; location?: string };
   isp?: string;
+  interface?: NetworkInterface;
 }
 
 export interface SpeedHistory {

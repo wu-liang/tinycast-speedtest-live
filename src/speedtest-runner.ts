@@ -1,7 +1,7 @@
 import { spawn as nodeSpawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
-import { LiveState, SpeedHistory, SpeedtestResult } from "./types";
+import { LiveState, NetworkInterface, SpeedHistory, SpeedtestResult } from "./types";
 
 export interface ChildLike {
   exitCode: number | null;
@@ -76,6 +76,19 @@ function phaseFor(event: Record<string, unknown>): LiveState["phase"] | undefine
 
 function asObject(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : undefined;
+}
+
+function validText(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+/** Keep independently-arriving address fields without admitting malformed progress payloads. */
+function mergeInterface(previous: NetworkInterface | undefined, value: unknown): NetworkInterface | undefined {
+  const candidate = asObject(value);
+  if (!candidate) return previous;
+  const internalIp = validText(candidate.internalIp) ?? previous?.internalIp;
+  const externalIp = validText(candidate.externalIp) ?? previous?.externalIp;
+  return internalIp === undefined && externalIp === undefined ? undefined : { internalIp, externalIp };
 }
 
 function messageForExit(stderr: string, code: number | null): string {
@@ -176,8 +189,9 @@ export function createSpeedtestRunner(overrides: Partial<RunnerDependencies> = {
       if (event.type === "testStart") {
         result = {
           ...result,
-          isp: typeof event.isp === "string" ? event.isp : result.isp,
+          isp: validText(event.isp) ?? result.isp,
           server: asObject(event.server) as SpeedtestResult["server"],
+          interface: mergeInterface(result.interface, event.interface),
         };
         queueState("starting");
         return true;
@@ -204,7 +218,8 @@ export function createSpeedtestRunner(overrides: Partial<RunnerDependencies> = {
           upload: (asObject(event.upload) as SpeedtestResult["upload"]) ?? result.upload ?? {},
           result: asObject(event.result) as SpeedtestResult["result"],
           server: asObject(event.server) as SpeedtestResult["server"],
-          isp: typeof event.isp === "string" ? event.isp : result.isp,
+          isp: validText(event.isp) ?? result.isp,
+          interface: mergeInterface(result.interface, event.interface),
         };
         publishedResult = true;
       }

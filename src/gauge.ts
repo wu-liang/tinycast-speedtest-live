@@ -7,6 +7,19 @@ const colors = {
   track: "#3b3b3e",
 };
 
+const layout = {
+  width: 720,
+  height: 360,
+  edge: 24,
+  gap: 16,
+  chartY: 194,
+  chartHeight: 84,
+  summaryHeight: 39,
+  footerBaseline: 352,
+} as const;
+const chartWidth = (layout.width - layout.edge * 2 - layout.gap) / 2;
+const summaryWidth = (layout.width - layout.edge * 2 - layout.gap * 2) / 3;
+
 function palette(appearance: "light" | "dark") {
   return appearance === "dark"
     ? { background: colors.darkBackground, panel: colors.darkPanel, text: colors.darkText, muted: colors.darkMuted, track: colors.track }
@@ -63,6 +76,33 @@ function progressFraction(measurement?: SpeedMeasurement): number {
     ? Math.max(0, Math.min(1, progress)) : 0;
 }
 
+function escapeSvgText(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[character]!);
+}
+
+function networkMetadata(label: string, value: string | undefined, x: number, anchor: "start" | "middle" | "end", theme: ReturnType<typeof palette>): string {
+  const cellWidth = 5.2, labelGap = 6;
+  const textWidth = (text: string) => Array.from(text).reduce((width, character) => width + (character.codePointAt(0)! > 255 ? 2 : 1) * cellWidth, 0);
+  const labelWidth = textWidth(label);
+  const available = summaryWidth - labelWidth - labelGap;
+  let display = value?.trim().replace(/[\u0000-\u001f\u007f]/g, " ") || "—";
+  if (textWidth(display) > available) {
+    const characters = Array.from(display).slice(0, Math.floor(available / cellWidth));
+    while (characters.length && textWidth(characters.join("") + "…") > available) characters.pop();
+    display = characters.join("") + "…";
+  }
+  const width = labelWidth + labelGap + textWidth(display);
+  const start = anchor === "start" ? x : anchor === "middle" ? x - width / 2 : x - width;
+  const columnX = anchor === "start" ? x : anchor === "middle" ? x - summaryWidth / 2 : x - summaryWidth;
+  const clipId = `footer-${anchor}`;
+  // Separate text nodes retain their colors in Tinycast's native SVG renderer.
+  return `<defs><clipPath id="${clipId}"><rect x="${columnX}" y="338" width="${summaryWidth}" height="20"/></clipPath></defs>
+    <g clip-path="url(#${clipId})" font-family="Menlo,monospace" font-size="8.5">
+      <text x="${start}" y="${layout.footerBaseline}" fill="${theme.muted}">${label}</text>
+      <text x="${start + labelWidth + labelGap}" y="${layout.footerBaseline}" fill="${theme.text}">${escapeSvgText(display)}</text>
+    </g>`;
+}
+
 function gauge(kind: "download" | "upload", state: LiveState, theme: ReturnType<typeof palette>, cx: number): string {
   const value = megabitsPerSecond(state.result[kind]);
   const fraction = speedFraction(value);
@@ -90,7 +130,7 @@ function gauge(kind: "download" | "upload", state: LiveState, theme: ReturnType<
 function chart(kind: "download" | "upload", state: LiveState, theme: ReturnType<typeof palette>, x: number): string {
   const history = state.history[kind];
   const samples = history.samples.filter((value) => Number.isFinite(value) && value >= 0);
-  const width = 204, baseline = 276, top = 241;
+  const width = 204, baseline = 264, top = 235;
   const retainedPeak = Number.isFinite(history.peak) && history.peak >= 0 ? history.peak : 0;
   const max = Math.max(1, retainedPeak, ...samples);
   const points = samples.map((value, index) => {
@@ -104,12 +144,12 @@ function chart(kind: "download" | "upload", state: LiveState, theme: ReturnType<
   const endX = samples.length ? x + (samples.length === 1 ? 0 : width) : x;
   const endY = latest === undefined ? baseline : baseline - latest / max * (baseline - top);
   const label = kind[0].toUpperCase() + kind.slice(1), color = colors[kind];
-  return `<g><rect x="${x - 15}" y="194" width="328" height="96" rx="12" fill="${theme.panel}"/>
-    <text x="${x}" y="212" fill="${theme.muted}" font-size="10">${label} over time</text>
-    <text x="${x}" y="226" fill="${theme.muted}" font-size="9">peak ${formatValue(history.count ? history.peak : undefined)}</text>
+  return `<g><rect x="${x - 15}" y="${layout.chartY}" width="${chartWidth}" height="${layout.chartHeight}" rx="12" fill="${theme.panel}"/>
+    <text x="${x}" y="211" fill="${theme.muted}" font-size="10">${label} over time</text>
+    <text x="${x}" y="224" fill="${theme.muted}" font-size="9">peak ${formatValue(history.count ? history.peak : undefined)}</text>
     ${fill ? `<path d="${fill}" fill="${color}" fill-opacity=".20"/>` : ""}${line ? `<path d="${line}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>` : ""}${samples.length ? `<circle cx="${endX.toFixed(2)}" cy="${endY.toFixed(2)}" r="3.5" fill="${color}"/>` : ""}
-    <text x="${x + 216}" y="251" fill="${theme.text}" font-size="11" font-weight="700">${formatValue(latest)}</text>
-    <text x="${x + 216}" y="279" fill="${theme.muted}" font-size="9">${history.count} samples</text></g>`;
+    <text x="${x + 216}" y="247" fill="${theme.text}" font-size="11" font-weight="700">${formatValue(latest)}</text>
+    <text x="${x + 216}" y="267" fill="${theme.muted}" font-size="9">${history.count} samples</text></g>`;
 }
 
 function latency(state: LiveState): number | undefined {
@@ -117,9 +157,10 @@ function latency(state: LiveState): number | undefined {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
 }
 function summaryCard(index: number, color: string, title: string, value: string, theme: ReturnType<typeof palette>): string {
-  const gap = 16, width = (720 - 24 * 2 - gap * 2) / 3;
-  const x = 24 + index * (width + gap);
-  return `<rect x="${x}" y="303" width="${width}" height="39" rx="11" fill="${color}" fill-opacity=".19"/><circle cx="${x + 17}" cy="323" r="4.5" fill="${color}"/><text x="${x + 31}" y="321" fill="${theme.text}" font-size="10" font-weight="600">${title}</text><text x="${x + 31}" y="334" fill="${theme.text}" font-size="10" font-weight="700">${value}</text>`;
+  const x = layout.edge + index * (summaryWidth + layout.gap);
+  const centerY = layout.chartY + layout.chartHeight + layout.gap + layout.summaryHeight / 2;
+  const summaryY = layout.chartY + layout.chartHeight + layout.gap;
+  return `<rect x="${x}" y="${summaryY}" width="${summaryWidth}" height="${layout.summaryHeight}" rx="11" fill="${color}" fill-opacity=".19"/><circle cx="${x + 17}" cy="${centerY}" r="4.5" fill="${color}"/><text x="${x + 31}" y="${summaryY + 18}" fill="${theme.text}" font-size="10" font-weight="600">${title}</text><text x="${x + 31}" y="${summaryY + 31}" fill="${theme.text}" font-size="10" font-weight="700">${value}</text>`;
 }
 
 /** One composite image keeps Tinycast's Grid identity stable throughout a live run. */
@@ -133,14 +174,17 @@ export function dashboardDataUri(state: LiveState, appearance: "light" | "dark")
       : state.phase === "error" ? "Failed" : state.phase === "cancelled" ? "Cancelled" : "Connecting";
   const statusColor = activeKind ? colors[activeKind] : state.phase === "done" ? "#32c878"
     : state.phase === "error" ? "#ef6464" : theme.muted;
-  return encodeSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="720" height="360" viewBox="0 0 720 360" font-family="-apple-system,BlinkMacSystemFont,sans-serif">
-    <rect width="720" height="360" fill="${theme.background}"/>
+  return encodeSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" font-family="-apple-system,BlinkMacSystemFont,sans-serif">
+    <rect width="${layout.width}" height="${layout.height}" fill="${theme.background}"/>
     <text x="360" y="117" text-anchor="middle" fill="${statusColor}" font-size="30" font-weight="600">${statusValue}</text>
     <text x="360" y="141" text-anchor="middle" fill="${statusColor}" font-size="12">${statusLabel}</text>
     ${gauge("download", state, theme, 180)}${gauge("upload", state, theme, 540)}
-    ${chart("download", state, theme, 39)}${chart("upload", state, theme, 383)}
+    ${chart("download", state, theme, layout.edge + 15)}${chart("upload", state, theme, layout.edge + chartWidth + layout.gap + 15)}
     ${summaryCard(0, colors.ping, "Ping", ping === undefined ? "— ms" : `${ping.toFixed(1)} ms`, theme)}
     ${summaryCard(1, colors.download, "Download", formatValue(megabitsPerSecond(state.result.download)), theme)}
     ${summaryCard(2, colors.upload, "Upload", formatValue(megabitsPerSecond(state.result.upload)), theme)}
+    ${networkMetadata("ISP", state.result.isp, layout.edge, "start", theme)}
+    ${networkMetadata("Internal IP", state.result.interface?.internalIp, layout.width / 2, "middle", theme)}
+    ${networkMetadata("External IP", state.result.interface?.externalIp, layout.width - layout.edge, "end", theme)}
   </svg>`);
 }

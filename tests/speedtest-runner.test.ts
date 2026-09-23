@@ -238,6 +238,45 @@ test("a sparse final result retains empty measurement objects", () => {
   assert.deepEqual(states.at(-1)?.result.ping, {});
 });
 
+test("preserves test-start network metadata when the final payload omits it", () => {
+  const h = harness();
+  const states: LiveState[] = [];
+  const run = h.run({ cliPath: "/cli", supportPath: "/support", onState: (state) => states.push(state) });
+  h.flushMicrotasks();
+  h.files.set(run.outputPath, [
+    '{"type":"testStart","isp":"Start ISP","interface":{"internalIp":"10.0.0.8","externalIp":"198.51.100.8"}}',
+    '{"type":"result","download":{"bandwidth":1000000},"upload":{"bandwidth":2000000}}',
+    "",
+  ].join("\n"));
+  h.intervals[0]();
+  h.children[0].exit(0);
+  assert.equal(states.at(-1)?.result.isp, "Start ISP");
+  assert.deepEqual(states.at(-1)?.result.interface, { internalIp: "10.0.0.8", externalIp: "198.51.100.8" });
+});
+
+test("accepts final network metadata and merges only valid partial interface fields", () => {
+  const h = harness();
+  const states: LiveState[] = [];
+  const run = h.run({ cliPath: "/cli", supportPath: "/support", onState: (state) => states.push(state) });
+  h.flushMicrotasks();
+  h.files.set(run.outputPath, [
+    '{"type":"testStart","isp":"Start ISP","interface":{"internalIp":"10.0.0.8"}}',
+    '{"type":"result","isp":42,"interface":"malformed"}',
+    '{"type":"result","isp":42,"interface":{"internalIp":false,"externalIp":"2001:db8::8"}}',
+    "",
+  ].join("\n"));
+  h.intervals[0]();
+  assert.equal(states.at(-1)?.result.isp, "Start ISP");
+  assert.deepEqual(states.at(-1)?.result.interface, { internalIp: "10.0.0.8", externalIp: "2001:db8::8" });
+
+  const finalOnly = h.run({ cliPath: "/cli", supportPath: "/support", onState: (state) => states.push(state) });
+  h.flushMicrotasks();
+  h.files.set(finalOnly.outputPath, '{"type":"result","isp":"Final ISP","interface":{"internalIp":"192.0.2.9","externalIp":"2001:db8::9"}}\n');
+  h.intervals[1]();
+  assert.equal(states.at(-1)?.result.isp, "Final ISP");
+  assert.deepEqual(states.at(-1)?.result.interface, { internalIp: "192.0.2.9", externalIp: "2001:db8::9" });
+});
+
 test("an immediate cancellation skips the queued spawn entirely", () => {
   const h = harness();
   const run = h.run({ cliPath: "/cli", supportPath: "/support", onState: () => undefined });

@@ -1,12 +1,14 @@
 # Tinycast Speedtest Live
 
-A standalone, local Raycast-format extension for unmodified Tinycast 0.11.3. A persistent Grid item displays a composite dashboard: two circular speed gauges, download/upload history charts, and Ping/Download/Upload summary cards. Tinycast retains the image while its SVG data URI updates. It polls CLI progress every 200 ms and coalesces each batch into one UI update. The 270-degree arcs follow Mbps on a graduated scale; test completion percentage is displayed separately.
+A standalone, local Raycast-format extension for unmodified Tinycast 0.11.3. A persistent Grid item displays a composite dashboard: two circular speed gauges, download/upload history charts, Ping/Download/Upload summary cards, and a bottom row for ISP, internal IP, and external IP. Tinycast retains the image while its SVG data URI updates. It polls CLI progress every 200 ms and coalesces each batch into one UI update. The 270-degree arcs follow Mbps on a graduated scale; test completion percentage is displayed separately.
 
 History includes every valid progress measurement, even when several arrive between UI updates. Charts show the latest sample, all-run peak, and total sample count. The most recent 600 samples per direction are retained for drawing; counts and peaks cover the entire run. Final summary values come from the CLI result and may differ from the last progress sample. Restarting clears the histories.
 
 During download or upload, a thin inner arc shows that stage's completion fraction, with a percentage beside the gauge label. The outer arc continues to show Mbps independently. The inner arc disappears when the stage ends, keeping the existing dashboard layout unchanged.
 
 The current stage is displayed between the gauges as a large percentage and a smaller label: blue for Downloading and purple for Uploading. It uses the same completion fraction as the inner arc. Completion is shown as a compact green check and Complete label in the same position.
+
+The footer shows ISP, Internal IP, and External IP from the CLI on one line. Missing values display a dash; long values are shortened to fit their column. Chart gaps, summary card gaps, and the gap between these rows share a 16-unit spacing. Existing installations load a rebuilt plugin when the command is closed and reopened; an application restart is unnecessary for these updates.
 
 ## Build and install
 

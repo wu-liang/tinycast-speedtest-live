@@ -60,3 +60,31 @@ test("empty and zero histories remain renderable and distinguish zero from unmea
   assert.match(svg, /0 samples/);
   assert.doesNotMatch(svg, /NaN|Infinity/);
 });
+
+test("network footer renders metadata safely and bounds long address text", () => {
+  const state: LiveState = {
+    phase: "done",
+    result: {
+      isp: 'A & <B> "C" \'D\'',
+      interface: { internalIp: "2001:db8:85a3:0000:0000:8a2e:0370:7334", externalIp: "198.51.100.23" },
+    },
+    history: emptyHistory,
+  };
+  const svg = decodeURIComponent(dashboardDataUri(state, "dark"));
+  assert.match(svg, />ISP<\/text>/);
+  assert.match(svg, />A &amp; &lt;B&gt; &quot;C&quot; &apos;D&apos;<\/text>/);
+  assert.match(svg, />Internal IP<\/text>/);
+  assert.match(svg, />2001:db8:[^<]*…<\/text>/);
+  assert.doesNotMatch(svg, /2001:db8:85a3:0000:0000:8a2e:0370:7334/);
+  assert.match(svg, />External IP<\/text>/);
+  assert.match(svg, />198\.51\.100\.23<\/text>/);
+  assert.doesNotMatch(svg, /<B>/);
+});
+
+test("network footer uses dashes before metadata arrives", () => {
+  const svg = decodeURIComponent(dashboardDataUri({ phase: "starting", result: {}, history: emptyHistory }, "light"));
+  assert.match(svg, />ISP<\/text>/);
+  assert.match(svg, />Internal IP<\/text>/);
+  assert.match(svg, />External IP<\/text>/);
+  assert.equal((svg.match(/fill="#17171b">—<\/text>/g) ?? []).length, 3);
+});
