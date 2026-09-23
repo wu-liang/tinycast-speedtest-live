@@ -1,14 +1,18 @@
 import { Action, ActionPanel, environment, getPreferenceValues, Grid, Icon, showToast, Toast } from "@raycast/api";
 import { existsSync } from "fs";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { gaugeDataUri, statusText } from "./gauge";
+import { dashboardDataUri } from "./gauge";
 import { runSpeedtest, SpeedtestRun } from "./speedtest-runner";
 import { LiveState } from "./types";
 
 interface Preferences { cliPath?: string }
 declare const __SPEEDTEST_FIXTURE_CLI__: string | undefined;
 
-const initialState: LiveState = { phase: "starting", result: { ping: {}, download: {}, upload: {} } };
+const initialState: LiveState = {
+  phase: "starting",
+  result: { ping: {}, download: {}, upload: {} },
+  history: { download: { samples: [], count: 0, peak: 0 }, upload: { samples: [], count: 0, peak: 0 } },
+};
 
 function resolveCliPath(preferences: Preferences): string {
   if (typeof __SPEEDTEST_FIXTURE_CLI__ !== "undefined") return __SPEEDTEST_FIXTURE_CLI__!;
@@ -69,23 +73,13 @@ export default function Command() {
     </ActionPanel>
   );
 
-  // Keys and ids are intentionally constants: only the content data URI changes during polling.
+  // The stable Grid item retains its image while the SVG source is updated during polling.
   return (
-    <Grid columns={2} aspectRatio="4/3" inset={Grid.Inset.Zero} searchBarPlaceholder={state.phase === "error" ? state.message : "Live Ookla Speedtest"}>
+    <Grid columns={1} aspectRatio={"2/1" as Grid.AspectRatio} inset={Grid.Inset.Zero} searchBarPlaceholder={state.phase === "error" ? state.message : "Live Ookla Speedtest"}>
       <Grid.Item
-        key="download"
-        id="download"
-        title="Download"
-        subtitle={statusText("download", state)}
-        content={{ source: gaugeDataUri("download", state, environment.appearance) }}
-        actions={actions}
-      />
-      <Grid.Item
-        key="upload"
-        id="upload"
-        title="Upload"
-        subtitle={statusText("upload", state)}
-        content={{ source: gaugeDataUri("upload", state, environment.appearance) }}
+        key="dashboard"
+        id="dashboard"
+        content={{ source: dashboardDataUri(state, environment.appearance) }}
         actions={actions}
       />
     </Grid>

@@ -1,6 +1,8 @@
 # Tinycast Speedtest Live
 
-A standalone, local Raycast-format extension for unmodified Tinycast 0.11.3. It presents two permanent Grid cards—download and upload—with changing SVG data URIs, so Tinycast can retain each native grid cell while the live gauges update. It polls CLI progress every 200 ms and coalesces each batch into one UI update. The 270-degree arcs follow Mbps on a graduated scale; test completion percentage is displayed separately.
+A standalone, local Raycast-format extension for unmodified Tinycast 0.11.3. A persistent Grid item displays a composite dashboard: two circular speed gauges, download/upload history charts, and Ping/Download/Upload summary cards. Tinycast retains the image while its SVG data URI updates. It polls CLI progress every 200 ms and coalesces each batch into one UI update. The 270-degree arcs follow Mbps on a graduated scale; test completion percentage is displayed separately.
+
+History includes every valid progress measurement, even when several arrive between UI updates. Charts show the latest sample, all-run peak, and total sample count. The most recent 600 samples per direction are retained for drawing; counts and peaks cover the entire run. Final summary values come from the CLI result and may differ from the last progress sample. Restarting clears the histories.
 
 ## Build and install
 
@@ -35,6 +37,6 @@ For CLI-level failure or cancellation sampling, use `SPEEDTEST_FIXTURE_MODE=fail
 
 ## Checks
 
-`npm test` verifies partial JSONL buffering, the final result, nonzero stderr reporting, cancellation cleanup, run isolation, shell-safe paths with spaces, per-poll batching, terminal malformed/read errors, immediate cancellation, and speed-scale semantics. `npm run build` produces `dist/package.json` (the Tinycast extension manifest), a duplicate `dist/manifest.json` for inspection, `dist/index.js`, and the extension asset.
+`npm test` verifies partial JSONL buffering, the final result, nonzero stderr reporting, cancellation cleanup, run isolation, shell-safe paths with spaces, per-poll batching, terminal malformed/read errors, immediate cancellation, speed-scale semantics, history retention and caps, and empty/zero SVG rendering. `npm run build` produces `dist/package.json` (the Tinycast extension manifest), a duplicate `dist/manifest.json` for inspection, `dist/index.js`, and the extension asset.
 
 The CLI binary is local support data, never part of the source or distributable bundle. This plugin is independent of Tinycast's application bundle; compatibility with future releases should still be checked.

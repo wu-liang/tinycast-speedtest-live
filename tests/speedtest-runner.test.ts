@@ -148,6 +148,58 @@ test("publishes one merged state for all complete JSONL records in a poll", () =
   assert.equal(states.at(-1)?.phase, "upload");
   assert.equal(states.at(-1)?.result.download?.bandwidth, 1_000_000);
   assert.equal(states.at(-1)?.result.upload?.bandwidth, 2_000_000);
+  assert.deepEqual(states.at(-1)?.history.download.samples, [8]);
+  assert.deepEqual(states.at(-1)?.history.upload.samples, [16]);
+});
+
+test("retains sampled history and peak when the final result arrives", () => {
+  const h = harness();
+  const states: LiveState[] = [];
+  const run = h.run({ cliPath: "/cli", supportPath: "/support", onState: (state) => states.push(state) });
+  h.flushMicrotasks();
+  h.files.set(run.outputPath, [
+    '{"type":"download","download":{"bandwidth":1000000}}',
+    '{"type":"download","download":{"bandwidth":4000000}}',
+    '{"type":"result","download":{"bandwidth":2000000},"upload":{"bandwidth":3000000}}',
+    "",
+  ].join("\n"));
+  h.intervals[0]();
+  h.children[0].exit(0);
+  assert.equal(states.at(-1)?.phase, "done");
+  assert.deepEqual(states.at(-1)?.history.download, { samples: [8, 32], count: 2, peak: 32 });
+  assert.deepEqual(states.at(-1)?.history.upload, { samples: [], count: 0, peak: 0 });
+});
+
+test("a sparse progress event does not duplicate the previously cached sample", () => {
+  const h = harness();
+  const states: LiveState[] = [];
+  const run = h.run({ cliPath: "/cli", supportPath: "/support", onState: (state) => states.push(state) });
+  h.flushMicrotasks();
+  h.files.set(run.outputPath, [
+    '{"type":"download","download":{"bandwidth":1000000}}',
+    '{"type":"download","download":{"progress":0.5}}',
+    "",
+  ].join("\n"));
+  h.intervals[0]();
+  assert.deepEqual(states.at(-1)?.history.download, { samples: [8], count: 1, peak: 8 });
+});
+
+test("keeps zero, rejects invalid bandwidth, and caps retained samples without losing count or peak", () => {
+  const h = harness();
+  const states: LiveState[] = [];
+  const run = h.run({ cliPath: "/cli", supportPath: "/support", onState: (state) => states.push(state) });
+  h.flushMicrotasks();
+  const records = Array.from({ length: 603 }, (_, index) => JSON.stringify({
+    type: "download", download: { bandwidth: index === 1 ? -1 : index === 2 ? "bad" : index * 1_000_000 },
+  }));
+  h.files.set(run.outputPath, `${records.join("\n")}\n`);
+  h.intervals[0]();
+  const history = states.at(-1)?.history.download;
+  assert.equal(history?.count, 601);
+  assert.equal(history?.samples.length, 600);
+  assert.equal(history?.samples[0], 24);
+  assert.equal(history?.peak, 4_816);
+  assert.equal(history?.samples.at(-1), 4_816);
 });
 
 test("malformed data is terminal and stops the child", () => {

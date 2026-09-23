@@ -1,7 +1,7 @@
 import { spawn as nodeSpawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
-import { LiveState, SpeedtestResult } from "./types";
+import { LiveState, SpeedHistory, SpeedtestResult } from "./types";
 
 export interface ChildLike {
   exitCode: number | null;
@@ -52,6 +52,19 @@ const defaultDependencies: RunnerDependencies = {
 };
 
 const emptyResult = (): SpeedtestResult => ({ download: {}, upload: {}, ping: {} });
+const MAX_HISTORY_SAMPLES = 600;
+
+const emptyHistory = (): SpeedHistory => ({ samples: [], count: 0, peak: 0 });
+
+function addBandwidthSample(history: SpeedHistory, bandwidth: unknown): SpeedHistory {
+  if (typeof bandwidth !== "number" || !Number.isFinite(bandwidth) || bandwidth < 0) return history;
+  const mbps = bandwidth * 8 / 1_000_000;
+  if (!Number.isFinite(mbps)) return history;
+  const samples = history.samples.length === MAX_HISTORY_SAMPLES
+    ? [...history.samples.slice(1), mbps]
+    : [...history.samples, mbps];
+  return { samples, count: history.count + 1, peak: Math.max(history.peak, mbps) };
+}
 
 function phaseFor(event: Record<string, unknown>): LiveState["phase"] | undefined {
   if (event.type === "ping") return "ping";
@@ -92,6 +105,7 @@ export function createSpeedtestRunner(overrides: Partial<RunnerDependencies> = {
     deps.fs.writeFileSync(errorPath, "");
 
     let result = emptyResult();
+    let history: LiveState["history"] = { download: emptyHistory(), upload: emptyHistory() };
     let phase: LiveState["phase"] = "starting";
     let offset = 0;
     let partialLine = "";
@@ -104,10 +118,20 @@ export function createSpeedtestRunner(overrides: Partial<RunnerDependencies> = {
     let interval: ReturnType<typeof setInterval> | undefined;
     let timeout: ReturnType<typeof setTimeout> | undefined;
 
+    const stateSnapshot = (nextPhase: LiveState["phase"], message?: string): LiveState => ({
+      phase: nextPhase,
+      result: { ...result },
+      history: {
+        download: { ...history.download, samples: [...history.download.samples] },
+        upload: { ...history.upload, samples: [...history.upload.samples] },
+      },
+      message,
+    });
+
     const publish = (nextPhase = phase, message?: string) => {
       if (cancelled || completed) return;
       phase = nextPhase;
-      options.onState({ phase, result: { ...result }, message });
+      options.onState(stateSnapshot(phase, message));
     };
 
     const queueState = (nextPhase: LiveState["phase"]) => {
@@ -133,7 +157,7 @@ export function createSpeedtestRunner(overrides: Partial<RunnerDependencies> = {
       completed = true;
       if (stopChild && child?.exitCode === null && !child.killed) child.kill("SIGTERM");
       cleanup();
-      options.onState({ phase: "error", result: { ...result }, message });
+      options.onState(stateSnapshot("error", message));
     };
 
     const consume = (line: string): boolean => {
@@ -161,8 +185,18 @@ export function createSpeedtestRunner(overrides: Partial<RunnerDependencies> = {
       const nextPhase = phaseFor(event);
       if (!nextPhase) return true;
       if (event.type === "ping") result = { ...result, ping: (asObject(event.ping) as SpeedtestResult["ping"]) ?? result.ping ?? {} };
-      if (event.type === "download") result = { ...result, download: (asObject(event.download) as SpeedtestResult["download"]) ?? result.download ?? {} };
-      if (event.type === "upload") result = { ...result, upload: (asObject(event.upload) as SpeedtestResult["upload"]) ?? result.upload ?? {} };
+      if (event.type === "download") {
+        const eventDownload = asObject(event.download) as SpeedtestResult["download"] | undefined;
+        const download = eventDownload ?? result.download ?? {};
+        result = { ...result, download };
+        history = { ...history, download: addBandwidthSample(history.download, eventDownload?.bandwidth) };
+      }
+      if (event.type === "upload") {
+        const eventUpload = asObject(event.upload) as SpeedtestResult["upload"] | undefined;
+        const upload = eventUpload ?? result.upload ?? {};
+        result = { ...result, upload };
+        history = { ...history, upload: addBandwidthSample(history.upload, eventUpload?.bandwidth) };
+      }
       if (event.type === "result") {
         result = {
           ping: (asObject(event.ping) as SpeedtestResult["ping"]) ?? result.ping ?? {},
@@ -214,9 +248,9 @@ export function createSpeedtestRunner(overrides: Partial<RunnerDependencies> = {
       completed = true;
       cleanup();
       if (code !== 0) {
-        options.onState({ phase: "error", result: { ...result }, message: messageForExit(stderr, code) });
+        options.onState(stateSnapshot("error", messageForExit(stderr, code)));
       } else if (!publishedResult) {
-        options.onState({ phase: "error", result: { ...result }, message: "Speedtest finished without a result." });
+        options.onState(stateSnapshot("error", "Speedtest finished without a result."));
       }
     };
 

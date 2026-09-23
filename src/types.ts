@@ -16,8 +16,18 @@ export interface SpeedtestResult {
   isp?: string;
 }
 
+export interface SpeedHistory {
+  /** Recent valid Mbps readings, retained for rendering only. */
+  samples: number[];
+  /** All valid readings received in this run, including samples dropped from `samples`. */
+  count: number;
+  /** The all-run peak in Mbps, so the label remains accurate after the cap is reached. */
+  peak: number;
+}
+
 export interface LiveState {
   phase: Phase;
   result: SpeedtestResult;
+  history: Record<"download" | "upload", SpeedHistory>;
   message?: string;
 }
