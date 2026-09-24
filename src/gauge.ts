@@ -180,8 +180,8 @@ export function dashboardDataUri(state: LiveState, appearance: "light" | "dark")
     <text x="360" y="141" text-anchor="middle" fill="${statusColor}" font-size="12">${statusLabel}</text>
     ${gauge("download", state, theme, 180)}${gauge("upload", state, theme, 540)}
     ${chart("download", state, theme, layout.edge + 15)}${chart("upload", state, theme, layout.edge + chartWidth + layout.gap + 15)}
-    ${summaryCard(0, colors.ping, "Ping", ping === undefined ? "— ms" : `${ping.toFixed(1)} ms`, theme)}
-    ${summaryCard(1, colors.download, "Download", formatValue(megabitsPerSecond(state.result.download)), theme)}
+    ${summaryCard(0, colors.download, "Download", formatValue(megabitsPerSecond(state.result.download)), theme)}
+    ${summaryCard(1, colors.ping, "Ping", ping === undefined ? "— ms" : `${ping.toFixed(1)} ms`, theme)}
     ${summaryCard(2, colors.upload, "Upload", formatValue(megabitsPerSecond(state.result.upload)), theme)}
     ${networkMetadata("ISP", state.result.isp, layout.edge, "start", theme)}
     ${networkMetadata("Internal IP", state.result.interface?.internalIp, layout.width / 2, "middle", theme)}
