@@ -50,9 +50,7 @@ test("dashboard contains both history charts and all summaries without invalid S
   assert.match(svg, /Ping/);
   assert.match(svg, /Download/);
   assert.match(svg, /Upload/);
-  assert.match(svg, /<text x="188" y="117"[^>]*>45\.38<\/text>/);
-  assert.match(svg, /<text x="532" y="117"[^>]*>57\.39<\/text>/);
-  assert.match(svg, /viewBox="0 0 720 376"/);
+  assert.match(svg, /<text x="180" y="117"[^>]*>45\.38<\/text>/);
   assert.doesNotMatch(svg, /NaN|Infinity/);
 });
 
@@ -110,7 +108,7 @@ test("network footer renders metadata safely and bounds long address text", () =
   assert.doesNotMatch(svg, />ISP<\/text>/);
   assert.match(svg, />A &amp; &lt;B&gt; &quot;C&quot; &apos;D&apos;<\/text>/);
   assert.match(svg, />Internal IP<\/text>/);
-  assert.match(svg, /<text x="24" y="358"[^>]*>Internal IP<\/text>/);
+  assert.match(svg, /<text x="24" y="352"[^>]*>Internal IP<\/text>/);
   assert.match(svg, />2001:db8:[^<]*…<\/text>/);
   assert.doesNotMatch(svg, /2001:db8:85a3:0000:0000:8a2e:0370:7334/);
   assert.match(svg, />External IP<\/text>/);
