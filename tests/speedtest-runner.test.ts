@@ -313,8 +313,8 @@ test("looks up client city once per external IP without delaying the CLI result"
   assert.equal(states.at(-1)?.phase, "done");
   assert.equal(states.at(-1)?.clientLocation, undefined);
   assert.equal(h.lookupCalls.length, 1);
-  assert.equal(h.lookupCalls[0].url, "https://ipwho.is/198.51.100.8?fields=success,city,country_code");
-  resolveLookup({ ok: true, json: async () => ({ success: true, city: "Utrecht", country_code: "NL" }) } as Response);
+  assert.equal(h.lookupCalls[0].url, "https://ipinfo.io/198.51.100.8/json");
+  resolveLookup({ ok: true, json: async () => ({ ip: "198.51.100.8", city: "Utrecht", country: "NL" }) } as Response);
   await new Promise<void>((resolve) => setImmediate(resolve));
   assert.deepEqual(states.at(-1)?.clientLocation, { city: "Utrecht", countryCode: "NL" });
   assert.equal(states.at(-1)?.phase, "done");
@@ -330,7 +330,7 @@ test("skips a malformed external IP when looking up client city", () => {
 });
 
 test("failed city lookup leaves the speed test usable", async () => {
-  const h = harness(async () => ({ ok: true, json: async () => ({ success: false }) } as Response));
+  const h = harness(async () => ({ ok: true, json: async () => ({ error: "City unavailable" }) } as Response));
   const states: LiveState[] = [];
   const run = h.run({ cliPath: "/cli", supportPath: "/support", onState: (state) => states.push(state) });
   h.flushMicrotasks();
@@ -356,7 +356,7 @@ test("city lookup timeout ignores a late response", async () => {
   h.intervals[0]();
   h.timeouts[1]();
   assert.equal(h.lookupCalls[0].signal?.aborted, true);
-  resolveLookup({ ok: true, json: async () => ({ success: true, city: "Too late", country_code: "NL" }) } as Response);
+  resolveLookup({ ok: true, json: async () => ({ city: "Too late", country: "NL" }) } as Response);
   await new Promise<void>((resolve) => setImmediate(resolve));
   assert.equal(states.at(-1)?.clientLocation, undefined);
   h.files.set(run.outputPath, `${h.files.get(run.outputPath)}{"type":"result"}\n`);
@@ -379,7 +379,7 @@ test("cancelling a completed run suppresses its late city response", async () =>
   assert.equal(h.lookupCalls[0].signal?.aborted, true);
   const firstCount = first.length;
   h.run({ cliPath: "/cli", supportPath: "/support", onState: (state) => second.push(state) });
-  resolveLookup({ ok: true, json: async () => ({ success: true, city: "Stale", country_code: "NL" }) } as Response);
+  resolveLookup({ ok: true, json: async () => ({ city: "Stale", country: "NL" }) } as Response);
   await new Promise<void>((resolve) => setImmediate(resolve));
   assert.equal(first.length, firstCount);
   assert.equal(second.at(-1)?.clientLocation, undefined);

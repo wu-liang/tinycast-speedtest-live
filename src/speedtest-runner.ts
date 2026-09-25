@@ -194,14 +194,15 @@ export function createSpeedtestRunner(overrides: Partial<RunnerDependencies> = {
       const lookupTimeout = deps.setTimeout(() => controller.abort(), 2_500);
       void (async () => {
         try {
-          const response = await deps.fetch(`https://ipwho.is/${encodeURIComponent(externalIp)}?fields=success,city,country_code`, { signal: controller.signal });
+          const response = await deps.fetch(`https://ipinfo.io/${encodeURIComponent(externalIp)}/json`, { signal: controller.signal });
           if (!response.ok) return;
           const data: unknown = await response.json();
           const location = asObject(data);
-          if (location?.success !== true || cancelled || controller.signal.aborted || (completed && phase !== "done")) return;
+          const city = validText(location?.city);
+          if (!city || cancelled || controller.signal.aborted || (completed && phase !== "done")) return;
           const resolvedLocation = {
-            city: validText(location.city),
-            countryCode: validText(location.country_code),
+            city,
+            countryCode: validText(location?.country),
           };
           locationsByIp.set(externalIp, resolvedLocation);
           if (activeLookupIp !== externalIp) return;
