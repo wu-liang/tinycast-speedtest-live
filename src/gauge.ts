@@ -124,7 +124,7 @@ function gauge(kind: "download" | "upload", state: LiveState, theme: ReturnType<
     <circle cx="${markerX}" cy="${markerY}" r="5" fill="#fff" stroke="${color}" stroke-width="2"/>
     <text x="${cx}" y="117" text-anchor="middle" fill="${theme.text}" font-size="28" font-weight="700">${formatMbps(state.result[kind])}</text>
     <text x="${cx}" y="136" text-anchor="middle" fill="${theme.muted}" font-size="10">Mbps</text>
-    <text x="${cx}" y="177" text-anchor="middle" fill="${color}" font-size="11" font-weight="600">${active ? `${Math.round(progress * 100)}% · ${label}` : label}</text>`;
+    <text x="${cx}" y="177" text-anchor="middle" fill="${color}" font-size="11" font-weight="600">${label}</text>`;
 }
 
 function chart(kind: "download" | "upload", state: LiveState, theme: ReturnType<typeof palette>, x: number): string {

@@ -16,12 +16,13 @@ test("speed scale follows Mbps independently of test completion", () => {
   const speedPaths = (svg: string) => svg.match(/<path[^>]+/g)?.filter((path) => !path.includes("data-progress"));
   assert.deepEqual(speedPaths(first), speedPaths(later));
   assert.notEqual(first.match(/<path data-progress[^>]+/)?.[0], later.match(/<path data-progress[^>]+/)?.[0]);
-  assert.match(later, /90% · Download/);
+  assert.match(later, />Download<\/text>/);
+  assert.doesNotMatch(later, /90% · Download/);
   assert.doesNotMatch(later, /data-progress="upload"/);
   const done = decodeURIComponent(dashboardDataUri({ ...state, phase: "done" }, "dark"));
   assert.doesNotMatch(done, /data-progress=/);
   assert.match(first, />100<\/text>/);
-  assert.match(later, /90%/);
+  assert.match(later, />90%<\/text>/);
 });
 
 test("completed download and cancelled measurements have accurate labels", () => {
