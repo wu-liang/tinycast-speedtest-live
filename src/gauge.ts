@@ -146,7 +146,7 @@ function chart(kind: "download" | "upload", state: LiveState, theme: ReturnType<
   const label = kind[0].toUpperCase() + kind.slice(1), color = colors[kind];
   return `<g><rect x="${x - 15}" y="${layout.chartY}" width="${chartWidth}" height="${layout.chartHeight}" rx="12" fill="${theme.panel}"/>
     <text x="${x}" y="211" fill="${theme.muted}" font-size="10">${label} over time</text>
-    <text x="${x}" y="224" fill="${theme.muted}" font-size="9">peak ${formatValue(history.count ? history.peak : undefined)}</text>
+    <text x="${x + chartWidth - 30}" y="211" text-anchor="end" fill="${theme.muted}" font-size="9">peak ${formatValue(history.count ? history.peak : undefined)}</text>
     ${fill ? `<path d="${fill}" fill="${color}" fill-opacity=".20"/>` : ""}${line ? `<path d="${line}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>` : ""}${samples.length ? `<circle cx="${endX.toFixed(2)}" cy="${endY.toFixed(2)}" r="3.5" fill="${color}"/>` : ""}
     <text x="${x + 216}" y="247" fill="${theme.text}" font-size="11" font-weight="700">${formatValue(latest)}</text>
     <text x="${x + 216}" y="267" fill="${theme.muted}" font-size="9">${history.count} samples</text></g>`;

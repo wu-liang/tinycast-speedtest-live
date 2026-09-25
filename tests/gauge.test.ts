@@ -42,6 +42,8 @@ test("dashboard contains both history charts and all summaries without invalid S
   const svg = decodeURIComponent(dashboardDataUri(state, "dark"));
   assert.match(svg, /Download over time/);
   assert.match(svg, /Upload over time/);
+  assert.match(svg, /<text x="337" y="211" text-anchor="end"[^>]*>peak 64\.01 Mbps<\/text>/);
+  assert.match(svg, /<text x="681" y="211" text-anchor="end"[^>]*>peak 57\.39 Mbps<\/text>/);
   assert.match(svg, /Ping/);
   assert.match(svg, /Download/);
   assert.match(svg, /Upload/);
