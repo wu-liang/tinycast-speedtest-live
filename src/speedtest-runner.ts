@@ -22,6 +22,7 @@ export interface RunnerDependencies {
   queueMicrotask: typeof queueMicrotask;
   now: () => number;
   random: () => number;
+  fetch: typeof fetch;
 }
 
 export interface RunOptions {
@@ -49,6 +50,7 @@ const defaultDependencies: RunnerDependencies = {
   queueMicrotask,
   now: Date.now,
   random: Math.random,
+  fetch: (url, init) => fetch(url, init),
 };
 
 const emptyResult = (): SpeedtestResult => ({ download: {}, upload: {}, ping: {} });
@@ -91,6 +93,14 @@ function mergeInterface(previous: NetworkInterface | undefined, value: unknown):
   return internalIp === undefined && externalIp === undefined ? undefined : { internalIp, externalIp };
 }
 
+function mergeServer(previous: SpeedtestResult["server"], value: unknown): SpeedtestResult["server"] {
+  const candidate = asObject(value);
+  if (!candidate) return previous;
+  const name = validText(candidate.name) ?? previous?.name;
+  const location = validText(candidate.location) ?? previous?.location;
+  return name === undefined && location === undefined ? undefined : { name, location };
+}
+
 function messageForExit(stderr: string, code: number | null): string {
   const firstUsefulLine = stderr
     .split(/\r?\n/)
@@ -130,10 +140,16 @@ export function createSpeedtestRunner(overrides: Partial<RunnerDependencies> = {
     let child: ChildLike | undefined;
     let interval: ReturnType<typeof setInterval> | undefined;
     let timeout: ReturnType<typeof setTimeout> | undefined;
+    let clientLocation: LiveState["clientLocation"];
+    let activeLookupIp: string | undefined;
+    const requestedIps = new Set<string>();
+    const locationsByIp = new Map<string, LiveState["clientLocation"]>();
+    const lookupControllers = new Set<AbortController>();
 
     const stateSnapshot = (nextPhase: LiveState["phase"], message?: string): LiveState => ({
       phase: nextPhase,
       result: { ...result },
+      clientLocation,
       history: {
         download: { ...history.download, samples: [...history.download.samples] },
         upload: { ...history.upload, samples: [...history.upload.samples] },
@@ -165,9 +181,44 @@ export function createSpeedtestRunner(overrides: Partial<RunnerDependencies> = {
       try { deps.fs.rmSync(errorPath, { force: true }); } catch { /* cleanup is best effort */ }
     };
 
+    const lookupClientLocation = (externalIp: string | undefined) => {
+      if (!externalIp || externalIp.length > 45 || !/^[\da-fA-F:.]+$/.test(externalIp)) return;
+      if (activeLookupIp !== externalIp) {
+        activeLookupIp = externalIp;
+        clientLocation = locationsByIp.get(externalIp);
+      }
+      if (requestedIps.has(externalIp)) return;
+      requestedIps.add(externalIp);
+      const controller = new AbortController();
+      lookupControllers.add(controller);
+      const lookupTimeout = deps.setTimeout(() => controller.abort(), 2_500);
+      void (async () => {
+        try {
+          const response = await deps.fetch(`https://ipwho.is/${encodeURIComponent(externalIp)}?fields=success,city,country_code`, { signal: controller.signal });
+          if (!response.ok) return;
+          const data: unknown = await response.json();
+          const location = asObject(data);
+          if (location?.success !== true || cancelled || controller.signal.aborted || (completed && phase !== "done")) return;
+          const resolvedLocation = {
+            city: validText(location.city),
+            countryCode: validText(location.country_code),
+          };
+          locationsByIp.set(externalIp, resolvedLocation);
+          if (activeLookupIp !== externalIp) return;
+          clientLocation = resolvedLocation;
+          options.onState(stateSnapshot(phase));
+        } catch { /* City lookup is best effort. */ }
+        finally {
+          deps.clearTimeout(lookupTimeout);
+          lookupControllers.delete(controller);
+        }
+      })();
+    };
+
     const endWithError = (message: string, stopChild = true) => {
       if (cancelled || completed) return;
       completed = true;
+      phase = "error";
       if (stopChild && child?.exitCode === null && !child.killed) child.kill("SIGTERM");
       cleanup();
       options.onState(stateSnapshot("error", message));
@@ -190,9 +241,10 @@ export function createSpeedtestRunner(overrides: Partial<RunnerDependencies> = {
         result = {
           ...result,
           isp: validText(event.isp) ?? result.isp,
-          server: asObject(event.server) as SpeedtestResult["server"],
+          server: mergeServer(result.server, event.server),
           interface: mergeInterface(result.interface, event.interface),
         };
+        lookupClientLocation(result.interface?.externalIp);
         queueState("starting");
         return true;
       }
@@ -217,10 +269,11 @@ export function createSpeedtestRunner(overrides: Partial<RunnerDependencies> = {
           download: (asObject(event.download) as SpeedtestResult["download"]) ?? result.download ?? {},
           upload: (asObject(event.upload) as SpeedtestResult["upload"]) ?? result.upload ?? {},
           result: asObject(event.result) as SpeedtestResult["result"],
-          server: asObject(event.server) as SpeedtestResult["server"],
+          server: mergeServer(result.server, event.server),
           isp: validText(event.isp) ?? result.isp,
           interface: mergeInterface(result.interface, event.interface),
         };
+        lookupClientLocation(result.interface?.externalIp);
         publishedResult = true;
       }
       queueState(nextPhase);
@@ -261,6 +314,7 @@ export function createSpeedtestRunner(overrides: Partial<RunnerDependencies> = {
         try { stderr = deps.fs.readFileSync(errorPath, "utf8") as string; } catch { /* report exit code */ }
       }
       completed = true;
+      if (code !== 0 || !publishedResult) phase = "error";
       cleanup();
       if (code !== 0) {
         options.onState(stateSnapshot("error", messageForExit(stderr, code)));
@@ -300,10 +354,13 @@ export function createSpeedtestRunner(overrides: Partial<RunnerDependencies> = {
       outputPath,
       errorPath,
       cancel() {
-        if (cancelled || completed) return;
+        if (cancelled) return;
         cancelled = true;
-        if (child?.exitCode === null && !child.killed) child.kill("SIGTERM");
-        cleanup();
+        for (const controller of lookupControllers) controller.abort();
+        if (!completed) {
+          if (child?.exitCode === null && !child.killed) child.kill("SIGTERM");
+          cleanup();
+        }
       },
     };
   };

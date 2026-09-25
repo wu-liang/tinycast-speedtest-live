@@ -156,11 +156,24 @@ function latency(state: LiveState): number | undefined {
   const value = state.result.ping?.latency;
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
 }
-function summaryCard(index: number, color: string, title: string, value: string, theme: ReturnType<typeof palette>): string {
+function summaryText(value: string | undefined, maxWidth: number): string {
+  let display = value?.trim().replace(/[\u0000-\u001f\u007f]/g, " ") || "—";
+  const width = (text: string) => Array.from(text).reduce((total, character) => total + (character.codePointAt(0)! > 255 ? 10 : 5.5), 0);
+  if (width(display) > maxWidth) {
+    const characters = Array.from(display);
+    while (characters.length && width(characters.join("") + "…") > maxWidth) characters.pop();
+    display = characters.join("") + "…";
+  }
+  return escapeSvgText(display);
+}
+
+function summaryCard(index: number, color: string, title: string | undefined, value: string | undefined, theme: ReturnType<typeof palette>): string {
   const x = layout.edge + index * (summaryWidth + layout.gap);
   const centerY = layout.chartY + layout.chartHeight + layout.gap + layout.summaryHeight / 2;
   const summaryY = layout.chartY + layout.chartHeight + layout.gap;
-  return `<rect x="${x}" y="${summaryY}" width="${summaryWidth}" height="${layout.summaryHeight}" rx="11" fill="${color}" fill-opacity=".19"/><circle cx="${x + 17}" cy="${centerY}" r="4.5" fill="${color}"/><text x="${x + 31}" y="${summaryY + 18}" fill="${theme.text}" font-size="10" font-weight="600">${title}</text><text x="${x + 31}" y="${summaryY + 31}" fill="${theme.text}" font-size="10" font-weight="700">${value}</text>`;
+  const textWidth = summaryWidth - 41;
+  const clipId = `summary-${index}`;
+  return `<defs><clipPath id="${clipId}"><rect x="${x + 31}" y="${summaryY + 4}" width="${textWidth}" height="${layout.summaryHeight - 6}"/></clipPath></defs><rect x="${x}" y="${summaryY}" width="${summaryWidth}" height="${layout.summaryHeight}" rx="11" fill="${color}" fill-opacity=".19"/><circle cx="${x + 17}" cy="${centerY}" r="4.5" fill="${color}"/><g clip-path="url(#${clipId})"><text x="${x + 31}" y="${summaryY + 18}" fill="${theme.text}" font-size="10" font-weight="600">${summaryText(title, textWidth)}</text><text x="${x + 31}" y="${summaryY + 31}" fill="${theme.text}" font-size="10" font-weight="700">${summaryText(value, textWidth)}</text></g>`;
 }
 
 /** One composite image keeps Tinycast's Grid identity stable throughout a live run. */
@@ -180,9 +193,9 @@ export function dashboardDataUri(state: LiveState, appearance: "light" | "dark")
     <text x="360" y="141" text-anchor="middle" fill="${statusColor}" font-size="12">${statusLabel}</text>
     ${gauge("download", state, theme, 180)}${gauge("upload", state, theme, 540)}
     ${chart("download", state, theme, layout.edge + 15)}${chart("upload", state, theme, layout.edge + chartWidth + layout.gap + 15)}
-    ${summaryCard(0, colors.download, "Download", formatValue(megabitsPerSecond(state.result.download)), theme)}
+    ${summaryCard(0, colors.download, state.result.isp, state.clientLocation?.city ? `${state.clientLocation.city}${state.clientLocation.countryCode ? `, ${state.clientLocation.countryCode}` : ""}` : undefined, theme)}
     ${summaryCard(1, colors.ping, "Ping", ping === undefined ? "— ms" : `${ping.toFixed(1)} ms`, theme)}
-    ${summaryCard(2, colors.upload, "Upload", formatValue(megabitsPerSecond(state.result.upload)), theme)}
+    ${summaryCard(2, colors.upload, state.result.server?.name, state.result.server?.location, theme)}
     ${networkMetadata("ISP", state.result.isp, layout.edge, "start", theme)}
     ${networkMetadata("Internal IP", state.result.interface?.internalIp, layout.width / 2, "middle", theme)}
     ${networkMetadata("External IP", state.result.interface?.externalIp, layout.width - layout.edge, "end", theme)}

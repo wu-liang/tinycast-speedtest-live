@@ -27,4 +27,4 @@ Install `dist/` with **Add from folder** as above.
 
 If the original Speedtest extension has already downloaded the CLI, run `npm run install-speedtest-cli` to copy it into this extension's support directory. Otherwise, set **Ookla CLI Path** in the preferences.
 
-The CLI performs the speed test and supplies the ISP and IP addresses shown on screen. The extension adds no analytics or separate IP lookup service.
+The CLI performs the speed test and supplies the ISP, server, and IP addresses shown on screen. To display the client's approximate city and country code, the extension sends the CLI's external IP address to [ipwho.is](https://ipwhois.io/documentation) in one best-effort HTTPS request per IP during each test. The test still works if this lookup fails. The extension adds no analytics.

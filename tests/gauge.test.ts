@@ -51,6 +51,34 @@ test("dashboard contains both history charts and all summaries without invalid S
   assert.doesNotMatch(svg, /NaN|Infinity/);
 });
 
+test("outer summary cards show client and server names and cities while Ping stays centered", () => {
+  const state: LiveState = {
+    phase: "done",
+    result: { isp: "Client ISP", server: { name: "Test Server", location: "Amsterdam" }, ping: { latency: 7.6 } },
+    clientLocation: { city: "Utrecht", countryCode: "NL" },
+    history: emptyHistory,
+  };
+  const svg = decodeURIComponent(dashboardDataUri(state, "dark"));
+  assert.match(svg, /clip-path="url\(#summary-0\)"[^>]*><text[^>]*>Client ISP<\/text><text[^>]*>Utrecht, NL<\/text>/);
+  assert.match(svg, /clip-path="url\(#summary-1\)"[^>]*><text[^>]*>Ping<\/text><text[^>]*>7\.6 ms<\/text>/);
+  assert.match(svg, /clip-path="url\(#summary-2\)"[^>]*><text[^>]*>Test Server<\/text><text[^>]*>Amsterdam<\/text>/);
+});
+
+test("outer summary cards escape and bound network names and use dashes for missing cities", () => {
+  const state: LiveState = {
+    phase: "starting",
+    result: { isp: '<Client & "ISP">', server: { name: "Very Long Server Name That Cannot Fit Inside The Summary Card", location: "<City>" } },
+    history: emptyHistory,
+  };
+  const svg = decodeURIComponent(dashboardDataUri(state, "light"));
+  assert.match(svg, /&lt;Client &amp; &quot;ISP&quot;&gt;/);
+  assert.match(svg, /clip-path="url\(#summary-0\)"[^>]*><text[^>]*>[^<]*<\/text><text[^>]*>—<\/text>/);
+  assert.match(svg, /Very Long Server Name[^<]*…<\/text>/);
+  assert.doesNotMatch(svg, /Very Long Server Name That Cannot Fit Inside The Summary Card/);
+  assert.match(svg, /&lt;City&gt;/);
+  assert.doesNotMatch(svg, /<City>/);
+});
+
 test("empty and zero histories remain renderable and distinguish zero from unmeasured", () => {
   const state: LiveState = {
     phase: "download",

@@ -59,7 +59,10 @@ export default function Command() {
     }
   }, [state.phase, state.message]);
 
-  const restart = () => setRunNumber((value) => value + 1);
+  const restart = () => {
+    runRef.current?.cancel();
+    setRunNumber((value) => value + 1);
+  };
   const cancel = () => {
     runRef.current?.cancel();
     setState((current) => ({ ...current, phase: "cancelled", message: "Cancelled" }));

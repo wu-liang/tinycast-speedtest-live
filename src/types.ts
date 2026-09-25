@@ -34,6 +34,7 @@ export interface SpeedHistory {
 export interface LiveState {
   phase: Phase;
   result: SpeedtestResult;
+  clientLocation?: { city?: string; countryCode?: string };
   history: Record<"download" | "upload", SpeedHistory>;
   message?: string;
 }

@@ -20,7 +20,7 @@ class FakeChild implements ChildLike {
   error(message: string): void { this.errorListener?.(new Error(message)); }
 }
 
-function harness() {
+function harness(fetchResponse: RunnerDependencies["fetch"] = async () => ({ ok: false } as Response)) {
   const files = new Map<string, string>();
   const children: FakeChild[] = [];
   const calls: { command: string; args: string[] }[] = [];
@@ -28,6 +28,7 @@ function harness() {
   const timeouts: (() => void)[] = [];
   const microtasks: (() => void)[] = [];
   const removed: string[] = [];
+  const lookupCalls: { url: string; signal: AbortSignal | undefined }[] = [];
   let random = 0;
 
   const dependencies: Partial<RunnerDependencies> = {
@@ -56,9 +57,13 @@ function harness() {
     queueMicrotask: (handler) => { microtasks.push(handler); },
     now: () => 1234,
     random: () => ++random / 10,
+    fetch: (url, init) => {
+      lookupCalls.push({ url: String(url), signal: init?.signal ?? undefined });
+      return fetchResponse(url, init);
+    },
   };
   return {
-    run: createSpeedtestRunner(dependencies), files, children, calls, intervals, timeouts, removed,
+    run: createSpeedtestRunner(dependencies), files, children, calls, intervals, timeouts, removed, lookupCalls,
     flushMicrotasks: () => { while (microtasks.length) microtasks.shift()?.(); },
   };
 }
@@ -254,6 +259,21 @@ test("preserves test-start network metadata when the final payload omits it", ()
   assert.deepEqual(states.at(-1)?.result.interface, { internalIp: "10.0.0.8", externalIp: "198.51.100.8" });
 });
 
+test("retains valid server name and city from test start across a sparse final result", () => {
+  const h = harness();
+  const states: LiveState[] = [];
+  const run = h.run({ cliPath: "/cli", supportPath: "/support", onState: (state) => states.push(state) });
+  h.flushMicrotasks();
+  h.files.set(run.outputPath, [
+    '{"type":"testStart","server":{"name":"Test Server","location":"Amsterdam"}}',
+    '{"type":"result","server":{"name":42,"location":null}}',
+    "",
+  ].join("\n"));
+  h.intervals[0]();
+  h.children[0].exit(0);
+  assert.deepEqual(states.at(-1)?.result.server, { name: "Test Server", location: "Amsterdam" });
+});
+
 test("accepts final network metadata and merges only valid partial interface fields", () => {
   const h = harness();
   const states: LiveState[] = [];
@@ -275,6 +295,94 @@ test("accepts final network metadata and merges only valid partial interface fie
   h.intervals[1]();
   assert.equal(states.at(-1)?.result.isp, "Final ISP");
   assert.deepEqual(states.at(-1)?.result.interface, { internalIp: "192.0.2.9", externalIp: "2001:db8::9" });
+});
+
+test("looks up client city once per external IP without delaying the CLI result", async () => {
+  let resolveLookup!: (response: Response) => void;
+  const h = harness(() => new Promise<Response>((resolve) => { resolveLookup = resolve; }));
+  const states: LiveState[] = [];
+  const run = h.run({ cliPath: "/cli", supportPath: "/support", onState: (state) => states.push(state) });
+  h.flushMicrotasks();
+  h.files.set(run.outputPath, [
+    '{"type":"testStart","isp":"Client ISP","interface":{"externalIp":"198.51.100.8"},"server":{"name":"Test Server","location":"Amsterdam"}}',
+    '{"type":"result","isp":"Client ISP","interface":{"externalIp":"198.51.100.8"},"server":{"name":"Test Server","location":"Amsterdam"}}',
+    "",
+  ].join("\n"));
+  h.intervals[0]();
+  h.children[0].exit(0);
+  assert.equal(states.at(-1)?.phase, "done");
+  assert.equal(states.at(-1)?.clientLocation, undefined);
+  assert.equal(h.lookupCalls.length, 1);
+  assert.equal(h.lookupCalls[0].url, "https://ipwho.is/198.51.100.8?fields=success,city,country_code");
+  resolveLookup({ ok: true, json: async () => ({ success: true, city: "Utrecht", country_code: "NL" }) } as Response);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.deepEqual(states.at(-1)?.clientLocation, { city: "Utrecht", countryCode: "NL" });
+  assert.equal(states.at(-1)?.phase, "done");
+});
+
+test("skips a malformed external IP when looking up client city", () => {
+  const h = harness();
+  const run = h.run({ cliPath: "/cli", supportPath: "/support", onState: () => undefined });
+  h.flushMicrotasks();
+  h.files.set(run.outputPath, '{"type":"testStart","interface":{"externalIp":"not-an-ip"}}\n');
+  h.intervals[0]();
+  assert.equal(h.lookupCalls.length, 0);
+});
+
+test("failed city lookup leaves the speed test usable", async () => {
+  const h = harness(async () => ({ ok: true, json: async () => ({ success: false }) } as Response));
+  const states: LiveState[] = [];
+  const run = h.run({ cliPath: "/cli", supportPath: "/support", onState: (state) => states.push(state) });
+  h.flushMicrotasks();
+  h.files.set(run.outputPath, '{"type":"testStart","interface":{"externalIp":"203.0.113.4"}}\n');
+  h.intervals[0]();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(states.at(-1)?.clientLocation, undefined);
+  assert.equal(states.at(-1)?.phase, "starting");
+  assert.equal(h.lookupCalls.length, 1);
+  h.files.set(run.outputPath, `${h.files.get(run.outputPath)}{"type":"result"}\n`);
+  h.intervals[0]();
+  h.children[0].exit(0);
+  assert.equal(states.at(-1)?.phase, "done");
+});
+
+test("city lookup timeout ignores a late response", async () => {
+  let resolveLookup!: (response: Response) => void;
+  const h = harness(() => new Promise<Response>((resolve) => { resolveLookup = resolve; }));
+  const states: LiveState[] = [];
+  const run = h.run({ cliPath: "/cli", supportPath: "/support", onState: (state) => states.push(state) });
+  h.flushMicrotasks();
+  h.files.set(run.outputPath, '{"type":"testStart","interface":{"externalIp":"203.0.113.4"}}\n');
+  h.intervals[0]();
+  h.timeouts[1]();
+  assert.equal(h.lookupCalls[0].signal?.aborted, true);
+  resolveLookup({ ok: true, json: async () => ({ success: true, city: "Too late", country_code: "NL" }) } as Response);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(states.at(-1)?.clientLocation, undefined);
+  h.files.set(run.outputPath, `${h.files.get(run.outputPath)}{"type":"result"}\n`);
+  h.intervals[0]();
+  h.children[0].exit(0);
+  assert.equal(states.at(-1)?.phase, "done");
+});
+
+test("cancelling a completed run suppresses its late city response", async () => {
+  let resolveLookup!: (response: Response) => void;
+  const h = harness(() => new Promise<Response>((resolve) => { resolveLookup = resolve; }));
+  const first: LiveState[] = [];
+  const second: LiveState[] = [];
+  const oldRun = h.run({ cliPath: "/cli", supportPath: "/support", onState: (state) => first.push(state) });
+  h.flushMicrotasks();
+  h.files.set(oldRun.outputPath, '{"type":"result","interface":{"externalIp":"198.51.100.8"}}\n');
+  h.intervals[0]();
+  h.children[0].exit(0);
+  oldRun.cancel();
+  assert.equal(h.lookupCalls[0].signal?.aborted, true);
+  const firstCount = first.length;
+  h.run({ cliPath: "/cli", supportPath: "/support", onState: (state) => second.push(state) });
+  resolveLookup({ ok: true, json: async () => ({ success: true, city: "Stale", country_code: "NL" }) } as Response);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(first.length, firstCount);
+  assert.equal(second.at(-1)?.clientLocation, undefined);
 });
 
 test("an immediate cancellation skips the queued spawn entirely", () => {
