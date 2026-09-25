@@ -4,7 +4,7 @@ Run Ookla speed tests in Tinycast with live download and upload gauges, progress
 
 ![Speedtest Live in Tinycast after a completed test](https://raw.githubusercontent.com/wu-liang/tinycast-speedtest-live/main/docs/images/speedtest-live.png)
 
-*Screenshot uses example ISP and IP addresses.*
+*Illustrative screenshot with example network details and reserved IP addresses.*
 
 ## Install
 
