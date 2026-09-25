@@ -1,77 +1,31 @@
 # Tinycast Speedtest Live
 
-A standalone, local Raycast-format extension for unmodified Tinycast 0.11.3. A persistent Grid item displays a composite dashboard: two circular speed gauges, download/upload history charts, Ping/Download/Upload summary cards, and a bottom row for ISP, internal IP, and external IP. Tinycast retains the image while its SVG data URI updates. It polls CLI progress every 200 ms and coalesces each batch into one UI update. The 270-degree arcs follow Mbps on a graduated scale; test completion percentage is displayed separately.
+Run Ookla speed tests in Tinycast with live download and upload gauges, progress, speed history, ping, and network details.
 
-![Speedtest Live in Tinycast after a completed test, showing download and upload gauges, speed history, and the complete application window](https://raw.githubusercontent.com/wu-liang/tinycast-speedtest-live/main/docs/images/speedtest-live.png)
+![Speedtest Live in Tinycast after a completed test](https://raw.githubusercontent.com/wu-liang/tinycast-speedtest-live/main/docs/images/speedtest-live.png)
 
-*Screenshot edited for privacy: ISP and IP addresses have been replaced with example values.*
+*Screenshot uses example ISP and IP addresses.*
 
-History includes every valid progress measurement, even when several arrive between UI updates. Charts show the latest sample, all-run peak, and total sample count. The most recent 600 samples per direction are retained for drawing; counts and peaks cover the entire run. Final summary values come from the CLI result and may differ from the last progress sample. Restarting clears the histories.
+## Install
 
-During download or upload, a thin inner arc shows that stage's completion fraction. The outer arc continues to show Mbps independently. The inner arc disappears when the stage ends, keeping the existing dashboard layout unchanged.
-
-The current stage is displayed between the gauges as a large percentage and a smaller label: blue for Downloading and purple for Uploading. It uses the same completion fraction as the inner arc. Completion is shown as a compact green check and Complete label in the same position.
-
-The footer shows ISP, Internal IP, and External IP from the CLI on one line. Missing values display a dash; long values are shortened to fit their column. Chart gaps, summary card gaps, and the gap between these rows share a 16-unit spacing. Existing installations load a rebuilt plugin when the command is closed and reopened; an application restart is unnecessary for these updates.
-
-## Install the download
-
-Requires macOS and Tinycast. Compatibility has been checked with Tinycast 0.11.3; other versions have not been verified.
+Requires macOS, Tinycast, and the Ookla Speedtest CLI. The CLI is not included in the download.
 
 1. Download `tinycast-speedtest-live.zip` from [Releases](https://github.com/wu-liang/tinycast-speedtest-live/releases).
-2. Extract the `tinycast-speedtest-live` folder into `~/Library/Application Support/com.tinycast.app/extensions/`. In Finder, use **Go > Go to Folder** to open that location.
-3. Supply the Ookla Speedtest CLI. If the original Speedtest extension is installed, run it once to obtain its CLI, then run:
+2. Extract its `tinycast-speedtest-live` folder into `~/Library/Application Support/com.tinycast.app/extensions/`.
+3. Set **Ookla CLI Path** in the extension preferences to the absolute path of your Speedtest CLI. If Tinycast's original Speedtest extension has already downloaded it, you can use the CLI at `~/Library/Application Support/com.tinycast.app/extension-support/speedtest/cli/speedtest` (replace `~` with your home directory).
+4. Restart Tinycast and open **Speedtest Live**. A test starts immediately; use **Actions** (Cmd+K) to cancel or restart it.
 
-   ```sh
-   mkdir -p "$HOME/Library/Application Support/com.tinycast.app/extension-support/tinycast-speedtest-live/cli"
-   cp "$HOME/Library/Application Support/com.tinycast.app/extension-support/speedtest/cli/speedtest" "$HOME/Library/Application Support/com.tinycast.app/extension-support/tinycast-speedtest-live/cli/speedtest"
-   chmod +x "$HOME/Library/Application Support/com.tinycast.app/extension-support/tinycast-speedtest-live/cli/speedtest"
-   ```
-
-   Alternatively, set **Ookla CLI Path** in the extension preferences to the absolute path of your existing Ookla Speedtest CLI executable.
-4. Restart Tinycast after the first installation and search for **Speedtest Live**. Opening the command starts a test immediately.
-
-The download is prebuilt and needs no Node.js installation. It does not include the Ookla CLI. To update an existing installation, replace this extension folder, then exit and reopen the command.
+To update, replace the extension folder, then close and reopen the command.
 
 ## Build from source
 
 ```sh
 npm ci
-npm run typecheck
 npm test
 npm run build
 npm run install-local
 ```
 
-The local installer writes only to `~/Library/Application Support/com.tinycast.app/extensions/tinycast-speedtest-live`; it does not replace the installed `speedtest` extension. Restart Tinycast after the first installation, then search for **Speedtest Live**, or open `tinycast://extensions/wu-liang/tinycast-speedtest-live/index`. The command starts a test immediately. Use the Actions menu (Cmd+K) to cancel or restart. No custom Tinycast build or additional macOS accessibility grant is needed.
+If the original Speedtest extension has already downloaded the CLI, run `npm run install-speedtest-cli` to copy it into this extension's support directory. Otherwise, set **Ookla CLI Path** in the preferences.
 
-The extension does not redistribute Ookla's proprietary CLI. If the extension has no CLI, either set **Ookla CLI Path** in its preferences or, when the stock Speedtest extension is already installed locally, run:
-
-```sh
-npm run install-speedtest-cli
-```
-
-That command copies the local existing binary into Tinycast support data, outside `dist/`.
-
-## Network data
-
-ISP and IP addresses are obtained from the running Ookla CLI, not embedded in the plugin. The extension adds no analytics or separate IP lookup service. The CLI connects to external services to perform the speed test. Progress files are kept in local Tinycast support data during a run and removed on completion, cancellation, or a handled error; an abrupt application termination may leave a temporary file behind.
-
-Test fixtures use synthetic network data. The distributable excludes local test recordings, temporary progress files, and development fixture builds.
-
-## Fixture visual check
-
-```sh
-npm run build
-npm run fixture-build
-```
-
-Copy `fixture-dist/` to Tinycast's extensions folder as `tinycast-speedtest-live-fixture`, restart Tinycast, and open `tinycast://extensions/wu-liang/tinycast-speedtest-live-fixture/index`. This separate test extension runs for about 22 seconds without network traffic and never changes production preferences. Its wrapper uses the absolute Node executable and source path from the build machine, so rebuild it if moving the checkout. Remove the fixture extension after testing.
-
-For CLI-level failure or cancellation sampling, use `SPEEDTEST_FIXTURE_MODE=failure` or `SPEEDTEST_FIXTURE_MODE=cancel` when executing `tests/fixtures/fake-speedtest.mjs`. These controls are limited to test fixtures.
-
-## Checks
-
-`npm test` verifies partial JSONL buffering, the final result, nonzero stderr reporting, cancellation cleanup, run isolation, shell-safe paths with spaces, per-poll batching, terminal malformed/read errors, immediate cancellation, speed-scale semantics, history retention and caps, and empty/zero SVG rendering. `npm run build` produces `dist/package.json` (the Tinycast extension manifest), a duplicate `dist/manifest.json` for inspection, `dist/index.js`, and the extension asset.
-
-The CLI binary is local support data, never part of the source or distributable bundle. This plugin is independent of Tinycast's application bundle; compatibility with future releases should still be checked.
+The CLI performs the speed test and supplies the ISP and IP addresses shown on screen. The extension adds no analytics or separate IP lookup service.
