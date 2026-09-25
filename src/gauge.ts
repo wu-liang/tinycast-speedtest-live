@@ -130,7 +130,7 @@ function gauge(kind: "download" | "upload", state: LiveState, theme: ReturnType<
 function chart(kind: "download" | "upload", state: LiveState, theme: ReturnType<typeof palette>, x: number): string {
   const history = state.history[kind];
   const samples = history.samples.filter((value) => Number.isFinite(value) && value >= 0);
-  const width = 204, baseline = 264, top = 235;
+  const width = chartWidth - 30, baseline = 264, top = 235;
   const retainedPeak = Number.isFinite(history.peak) && history.peak >= 0 ? history.peak : 0;
   const max = Math.max(1, retainedPeak, ...samples);
   const points = samples.map((value, index) => {
@@ -147,9 +147,7 @@ function chart(kind: "download" | "upload", state: LiveState, theme: ReturnType<
   return `<g><rect x="${x - 15}" y="${layout.chartY}" width="${chartWidth}" height="${layout.chartHeight}" rx="12" fill="${theme.panel}"/>
     <text x="${x}" y="211" fill="${theme.muted}" font-size="10">${label} over time</text>
     <text x="${x + chartWidth - 30}" y="211" text-anchor="end" fill="${theme.muted}" font-size="9">peak ${formatValue(history.count ? history.peak : undefined)}</text>
-    ${fill ? `<path d="${fill}" fill="${color}" fill-opacity=".20"/>` : ""}${line ? `<path d="${line}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>` : ""}${samples.length ? `<circle cx="${endX.toFixed(2)}" cy="${endY.toFixed(2)}" r="3.5" fill="${color}"/>` : ""}
-    <text x="${x + 216}" y="247" fill="${theme.text}" font-size="11" font-weight="700">${formatValue(latest)}</text>
-    <text x="${x + 216}" y="267" fill="${theme.muted}" font-size="9">${history.count} samples</text></g>`;
+    ${fill ? `<path d="${fill}" fill="${color}" fill-opacity=".20"/>` : ""}${line ? `<path d="${line}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>` : ""}${samples.length ? `<circle cx="${endX.toFixed(2)}" cy="${endY.toFixed(2)}" r="3.5" fill="${color}"/>` : ""}</g>`;
 }
 
 function latency(state: LiveState): number | undefined {
@@ -196,8 +194,7 @@ export function dashboardDataUri(state: LiveState, appearance: "light" | "dark")
     ${summaryCard(0, colors.download, state.result.isp, state.clientLocation?.city ? `${state.clientLocation.city}${state.clientLocation.countryCode ? `, ${state.clientLocation.countryCode}` : ""}` : undefined, theme)}
     ${summaryCard(1, colors.ping, "Ping", ping === undefined ? "— ms" : `${ping.toFixed(1)} ms`, theme)}
     ${summaryCard(2, colors.upload, state.result.server?.name, state.result.server?.location, theme)}
-    ${networkMetadata("ISP", state.result.isp, layout.edge, "start", theme)}
-    ${networkMetadata("Internal IP", state.result.interface?.internalIp, layout.width / 2, "middle", theme)}
+    ${networkMetadata("Internal IP", state.result.interface?.internalIp, layout.edge, "start", theme)}
     ${networkMetadata("External IP", state.result.interface?.externalIp, layout.width - layout.edge, "end", theme)}
   </svg>`);
 }

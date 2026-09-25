@@ -44,10 +44,13 @@ test("dashboard contains both history charts and all summaries without invalid S
   assert.match(svg, /Upload over time/);
   assert.match(svg, /<text x="337" y="211" text-anchor="end"[^>]*>peak 64\.01 Mbps<\/text>/);
   assert.match(svg, /<text x="681" y="211" text-anchor="end"[^>]*>peak 57\.39 Mbps<\/text>/);
+  assert.match(svg, /<circle cx="337\.00" cy="[^\"]+" r="3\.5" fill="#2196ff"\/>/);
+  assert.match(svg, /<circle cx="383\.00" cy="[^\"]+" r="3\.5" fill="#8047ff"\/>/);
+  assert.doesNotMatch(svg, /samples<\/text>/);
   assert.match(svg, /Ping/);
   assert.match(svg, /Download/);
   assert.match(svg, /Upload/);
-  assert.match(svg, /45\.38 Mbps/);
+  assert.match(svg, /<text x="180" y="117"[^>]*>45\.38<\/text>/);
   assert.doesNotMatch(svg, /NaN|Infinity/);
 });
 
@@ -87,8 +90,8 @@ test("empty and zero histories remain renderable and distinguish zero from unmea
   };
   const svg = decodeURIComponent(dashboardDataUri(state, "light"));
   assert.match(svg, />0\.00<\/text>/);
-  assert.match(svg, /1 samples/);
-  assert.match(svg, /0 samples/);
+  assert.match(svg, /<circle cx="39\.00" cy="264\.00" r="3\.5" fill="#2196ff"\/>/);
+  assert.doesNotMatch(svg, /<circle cx="383\.00"[^>]+fill="#8047ff"\/>/);
   assert.doesNotMatch(svg, /NaN|Infinity/);
 });
 
@@ -102,9 +105,10 @@ test("network footer renders metadata safely and bounds long address text", () =
     history: emptyHistory,
   };
   const svg = decodeURIComponent(dashboardDataUri(state, "dark"));
-  assert.match(svg, />ISP<\/text>/);
+  assert.doesNotMatch(svg, />ISP<\/text>/);
   assert.match(svg, />A &amp; &lt;B&gt; &quot;C&quot; &apos;D&apos;<\/text>/);
   assert.match(svg, />Internal IP<\/text>/);
+  assert.match(svg, /<text x="24" y="352"[^>]*>Internal IP<\/text>/);
   assert.match(svg, />2001:db8:[^<]*…<\/text>/);
   assert.doesNotMatch(svg, /2001:db8:85a3:0000:0000:8a2e:0370:7334/);
   assert.match(svg, />External IP<\/text>/);
@@ -114,8 +118,8 @@ test("network footer renders metadata safely and bounds long address text", () =
 
 test("network footer uses dashes before metadata arrives", () => {
   const svg = decodeURIComponent(dashboardDataUri({ phase: "starting", result: {}, history: emptyHistory }, "light"));
-  assert.match(svg, />ISP<\/text>/);
+  assert.doesNotMatch(svg, />ISP<\/text>/);
   assert.match(svg, />Internal IP<\/text>/);
   assert.match(svg, />External IP<\/text>/);
-  assert.equal((svg.match(/fill="#17171b">—<\/text>/g) ?? []).length, 3);
+  assert.equal((svg.match(/fill="#17171b">—<\/text>/g) ?? []).length, 2);
 });
