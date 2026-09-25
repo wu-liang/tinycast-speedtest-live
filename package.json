@@ -1,7 +1,7 @@
 {
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "tinycast-speedtest-live",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "title": "Speedtest Live",
   "description": "Live Ookla speed gauges for Tinycast",
   "icon": "assets/speedometer.svg",

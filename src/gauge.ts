@@ -9,13 +9,13 @@ const colors = {
 
 const layout = {
   width: 720,
-  height: 360,
+  height: 376,
   edge: 24,
   gap: 16,
   chartY: 194,
   chartHeight: 84,
   summaryHeight: 39,
-  footerBaseline: 352,
+  footerBaseline: 358,
 } as const;
 const chartWidth = (layout.width - layout.edge * 2 - layout.gap) / 2;
 const summaryWidth = (layout.width - layout.edge * 2 - layout.gap * 2) / 3;
@@ -96,7 +96,7 @@ function networkMetadata(label: string, value: string | undefined, x: number, an
   const columnX = anchor === "start" ? x : anchor === "middle" ? x - summaryWidth / 2 : x - summaryWidth;
   const clipId = `footer-${anchor}`;
   // Separate text nodes retain their colors in Tinycast's native SVG renderer.
-  return `<defs><clipPath id="${clipId}"><rect x="${columnX}" y="338" width="${summaryWidth}" height="20"/></clipPath></defs>
+  return `<defs><clipPath id="${clipId}"><rect x="${columnX}" y="348" width="${summaryWidth}" height="16"/></clipPath></defs>
     <g clip-path="url(#${clipId})" font-family="Menlo,monospace" font-size="8.5">
       <text x="${start}" y="${layout.footerBaseline}" fill="${theme.muted}">${label}</text>
       <text x="${start + labelWidth + labelGap}" y="${layout.footerBaseline}" fill="${theme.text}">${escapeSvgText(display)}</text>
@@ -189,7 +189,7 @@ export function dashboardDataUri(state: LiveState, appearance: "light" | "dark")
     <rect width="${layout.width}" height="${layout.height}" fill="${theme.background}"/>
     <text x="360" y="117" text-anchor="middle" fill="${statusColor}" font-size="30" font-weight="600">${statusValue}</text>
     <text x="360" y="141" text-anchor="middle" fill="${statusColor}" font-size="12">${statusLabel}</text>
-    ${gauge("download", state, theme, 180)}${gauge("upload", state, theme, 540)}
+    ${gauge("download", state, theme, layout.edge + chartWidth / 2)}${gauge("upload", state, theme, layout.width - layout.edge - chartWidth / 2)}
     ${chart("download", state, theme, layout.edge + 15)}${chart("upload", state, theme, layout.edge + chartWidth + layout.gap + 15)}
     ${summaryCard(0, colors.download, state.result.isp, state.clientLocation?.city ? `${state.clientLocation.city}${state.clientLocation.countryCode ? `, ${state.clientLocation.countryCode}` : ""}` : undefined, theme)}
     ${summaryCard(1, colors.ping, "Ping", ping === undefined ? "— ms" : `${ping.toFixed(1)} ms`, theme)}
